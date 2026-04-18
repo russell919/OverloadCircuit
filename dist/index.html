@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>过载回路 Overload Circuit</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0a0a12;
+            font-family: 'Inter', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-container canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+            image-rendering: auto;
+        }
+
+        /* DOM Overlay Layer - Phaser仅负责背景与演出，此层覆盖在上方 */
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-ui {
+            position: relative;
+            width: 1280px;
+            height: 720px;
+            pointer-events: auto;
+            display: flex;
+            background: rgba(10, 10, 18, 0.95);
+        }
+
+        /* 左侧栏 */
+        .left-panel {
+            width: 260px;
+            height: 100%;
+            background: rgba(18, 18, 31, 0.9);
+            border-right: 1px solid rgba(42, 42, 78, 0.8);
+            padding: 20px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .game-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4488ff;
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(68, 136, 255, 0.3);
+        }
+
+        .info-block {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #8888aa;
+        }
+
+        .info-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .info-value.stage {
+            color: #ffaa22;
+        }
+
+        .info-value.score {
+            color: #44ff88;
+        }
+
+        /* 热量条 */
+        .heat-section {
+            margin-top: 8px;
+        }
+
+        .heat-label {
+            font-size: 12px;
+            color: #aaaacc;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .heat-bar-container {
+            width: 100%;
+            height: 20px;
+            background: rgba(34, 34, 68, 0.8);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .heat-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #44ff44, #88ff88);
+            border-radius: 4px;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+
+        .heat-bar.medium {
+            background: linear-gradient(90deg, #ffaa22, #ffcc44);
+        }
+
+        .heat-bar.high {
+            background: linear-gradient(90deg, #ff4444, #ff6666);
+            animation: pulse-heat 0.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-heat {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .heat-warning {
+            font-size: 11px;
+            color: #ff4444;
+            font-weight: bold;
+            margin-top: 4px;
+            min-height: 16px;
+        }
+
+        /* 遗物列表 */
+        .relic-section {
+            margin-top: auto;
+        }
+
+        .relic-title {
+            font-size: 12px;
+            color: #aaaacc;
+            margin-bottom: 6px;
+        }
+
+        .relic-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .relic-item {
+            font-size: 11px;
+            color: #ffdd44;
+            background: rgba(255, 221, 68, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .relic-more {
+            font-size: 11px;
+            color: #6666aa;
+        }
+
+        /* 中间主舞台 */
+        .center-panel {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 15px 20px;
+            gap: 10px;
+        }
+
+        .center-title {
+            font-size: 14px;
+            color: #aaaacc;
+            text-align: center;
+        }
+
+        /* 数值区 */
+        .stats-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            padding: 10px 0;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #4488ff;
+        }
+
+        .stat-value.mult {
+            color: #ff4444;
+        }
+
+        .stat-value.xmult {
+            color: #ffaa22;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6666aa;
+        }
+
+        /* 预计结算分 */
+        .estimated-section {
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        .estimated-label {
+            font-size: 14px;
+            color: #aaaacc;
+        }
+
+        .estimated-value {
+            font-size: 52px;
+            font-weight: bold;
+            color: #44ff88;
+            text-shadow: 0 0 20px rgba(68, 255, 136, 0.4);
+        }
+
+        .formula {
+            font-size: 16px;
+            color: #6666aa;
+            margin-top: 4px;
+        }
+
+        /* 模块卡片区 */
+        .modules-section {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px 0;
+            flex-wrap: wrap;
+        }
+
+        .module-card {
+            width: 110px;
+            height: 64px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #ffffff;
+            font-weight: bold;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+        }
+
+        .module-card.blue {
+            background: linear-gradient(135deg, #4488ff, #2266dd);
+            box-shadow: 0 2px 8px rgba(68, 136, 255, 0.3);
+        }
+
+        .module-card.red {
+            background: linear-gradient(135deg, #ff4444, #dd2222);
+            box-shadow: 0 2px 8px rgba(255, 68, 68, 0.3);
+        }
+
+        .module-card.yellow {
+            background: linear-gradient(135deg, #ffaa22, #dd8800);
+            box-shadow: 0 2px 8px rgba(255, 170, 34, 0.3);
+        }
+
+        .module-card.cool {
+            background: linear-gradient(135deg, #44ffaa, #22cc88);
+            box-shadow: 0 2px 8px rgba(68, 255, 170, 0.3);
+        }
+
+        .module-card.copy {
+            background: linear-gradient(135deg, #aa44ff, #8822dd);
+            box-shadow: 0 2px 8px rgba(170, 68, 255, 0.3);
+        }
+
+        .module-card.amp {
+            background: linear-gradient(135deg, #ff88aa, #dd6688);
+            box-shadow: 0 2px 8px rgba(255, 136, 170, 0.3);
+        }
+
+        .module-card.fission {
+            background: linear-gradient(135deg, #44ffaa, #22ddaa);
+            box-shadow: 0 2px 8px rgba(68, 255, 170, 0.3);
+        }
+
+        .module-card.latest {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+            border: 2px solid #ffffff;
+            animation: glow-card 1s ease-in-out;
+        }
+
+        @keyframes glow-card {
+            0% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.4); }
+            100% { box-shadow: 0 0 10px rgba(255, 255, 255, 0.2); }
+        }
+
+        .module-name {
+            font-size: 16px;
+        }
+
+        .module-effect {
+            font-size: 11px;
+            opacity: 0.9;
+        }
+
+        /* 底部按钮区 */
+        .buttons-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 0;
+            margin-top: auto;
+        }
+
+        .btn {
+            padding: 12px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.primary {
+            background: linear-gradient(135deg, #4488ff, #2266dd);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(68, 136, 255, 0.4);
+        }
+
+        .btn.primary:hover {
+            box-shadow: 0 6px 16px rgba(68, 136, 255, 0.5);
+        }
+
+        .btn.success {
+            background: linear-gradient(135deg, #44ff88, #22cc66);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(68, 255, 136, 0.4);
+        }
+
+        .btn.success:hover {
+            box-shadow: 0 6px 16px rgba(68, 255, 136, 0.5);
+        }
+
+        .btn.secondary {
+            background: rgba(102, 102, 170, 0.6);
+            color: #aaaacc;
+            padding: 10px 20px;
+            font-size: 14px;
+        }
+
+        .btn.secondary:hover {
+            background: rgba(102, 102, 170, 0.8);
+        }
+
+        /* 右侧栏 */
+        .right-panel {
+            width: 240px;
+            height: 100%;
+            background: rgba(18, 18, 31, 0.9);
+            border-left: 1px solid rgba(42, 42, 78, 0.8);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .right-section-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #aaaacc;
+            border-bottom: 1px solid rgba(68, 68, 102, 0.5);
+            padding-bottom: 6px;
+        }
+
+        /* 待触发效果 */
+        .pending-effect {
+            font-size: 12px;
+            color: #ffdd44;
+            background: rgba(255, 221, 68, 0.1);
+            padding: 6px 8px;
+            border-radius: 4px;
+            min-height: 24px;
+        }
+
+        .copyable-module {
+            font-size: 12px;
+            color: #8888aa;
+            margin-top: 4px;
+        }
+
+        /* 最近抽取 */
+        .recent-modules {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .recent-item {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(68, 68, 102, 0.3);
+        }
+
+        .recent-item.blue { color: #4488ff; }
+        .recent-item.red { color: #ff4444; }
+        .recent-item.yellow { color: #ffaa22; }
+        .recent-item.cool { color: #44ffaa; }
+        .recent-item.copy { color: #aa44ff; }
+        .recent-item.amp { color: #ff88aa; }
+        .recent-item.fission { color: #44ffaa; }
+
+        /* 事件日志 */
+        .log-section {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .log-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .log-list::-webkit-scrollbar-thumb {
+            background: rgba(68, 68, 102, 0.5);
+            border-radius: 2px;
+        }
+
+        .log-item {
+            font-size: 11px;
+            color: #6666aa;
+            padding: 2px 0;
+            line-height: 1.4;
+        }
+
+        .log-item:last-child {
+            color: #ffffff;
+        }
+
+        .log-item.highlight {
+            color: #ffdd44;
+            font-weight: bold;
+        }
+
+        .log-item.overload {
+            color: #ff4444;
+            font-weight: bold;
+        }
+
+        .log-item.success {
+            color: #44ff88;
+            font-weight: bold;
+        }
+
+        /* Menu Scene */
+        .menu-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            background: linear-gradient(135deg, #0a0a12, #12121f);
+        }
+
+        .menu-title {
+            font-size: 56px;
+            font-weight: bold;
+            color: #4488ff;
+            text-shadow: 0 0 30px rgba(68, 136, 255, 0.5);
+        }
+
+        .menu-subtitle {
+            font-size: 20px;
+            color: #aaaacc;
+            margin-top: -15px;
+        }
+
+        .menu-history {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            text-align: center;
+        }
+
+        .history-item {
+            font-size: 14px;
+            color: #8888aa;
+        }
+
+        .history-value {
+            color: #44ff88;
+            font-weight: bold;
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        /* Relic Scene */
+        .relic-select-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            background: linear-gradient(135deg, #0a0a12, #12121f);
+            padding: 40px;
+        }
+
+        .relic-select-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffdd44;
+            text-shadow: 0 0 20px rgba(255, 221, 68, 0.4);
+        }
+
+        .relic-cards-container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .relic-select-card {
+            width: 200px;
+            padding: 20px;
+            background: rgba(18, 18, 31, 0.95);
+            border: 2px solid rgba(255, 221, 68, 0.3);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .relic-select-card:hover {
+            transform: translateY(-8px);
+            border-color: #ffdd44;
+        }
+
+        .relic-card-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffdd44;
+            text-align: center;
+        }
+
+        .relic-card-desc {
+            font-size: 13px;
+            color: #aaaacc;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        /* Result Scene */
+        .result-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            background: linear-gradient(135deg, #0a0a12, #12121f);
+        }
+
+        .result-title {
+            font-size: 42px;
+            font-weight: bold;
+            color: #ff4444;
+        }
+
+        .result-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            text-align: center;
+        }
+
+        .result-stat {
+            font-size: 18px;
+            color: #aaaacc;
+        }
+
+        .result-stat-value {
+            color: #44ff88;
+            font-weight: bold;
+            font-size: 24px;
+        }
+
+        .result-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        /* Feedback animations */
+        .value-pop {
+            position: absolute;
+            font-size: 18px;
+            font-weight: bold;
+            pointer-events: none;
+            animation: pop-up 0.6s ease-out forwards;
+            z-index: 100;
+        }
+
+        @keyframes pop-up {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-40px) scale(1.2);
+            }
+        }
+
+        .flash-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: rgba(255, 0, 0, 0.3);
+            animation: flash 0.4s ease-out forwards;
+            z-index: 50;
+        }
+
+        @keyframes flash {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Overload animation */
+        .overload-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 64px;
+            font-weight: bold;
+            color: #ff4444;
+            text-shadow: 0 0 30px rgba(255, 68, 68, 0.8);
+            animation: overload-zoom 1.5s ease-out forwards;
+            z-index: 100;
+        }
+
+        @keyframes overload-zoom {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+            20% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.3);
+            }
+            40% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+            70% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        /* Settle animation */
+        .settle-score {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: bold;
+            color: #44ff88;
+            text-shadow: 0 0 30px rgba(68, 255, 136, 0.6);
+            animation: settle-pop 1.5s ease-out forwards;
+            z-index: 100;
+        }
+
+        @keyframes settle-pop {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.3);
+            }
+            30% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+            80% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1.5);
+            }
+        }
+
+        /* Stage clear animation */
+        .stage-clear-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            color: #ffdd44;
+            text-shadow: 0 0 30px rgba(255, 221, 68, 0.6);
+            animation: clear-pop 2s ease-out forwards;
+            z-index: 100;
+        }
+
+        @keyframes clear-pop {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+            20% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+            40% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+            70% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+    </style>
+  <script type="module" crossorigin src="./assets/index-Dh36N--2.js"></script>
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui-overlay">
+            <div id="game-ui"></div>
+        </div>
+    </div>
+</body>
+</html>
