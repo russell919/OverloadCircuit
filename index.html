@@ -19,7 +19,6 @@
             font-family: 'Inter', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
         }
 
-        /* 游戏容器 */
         #game-container {
             position: relative;
             width: 100%;
@@ -35,7 +34,6 @@
             image-rendering: auto;
         }
 
-        /* DOM Overlay Layer */
         #ui-overlay {
             position: absolute;
             top: 0;
@@ -48,7 +46,6 @@
             align-items: center;
         }
 
-        /* 游戏UI主容器 - 响应式 */
         #game-ui {
             position: relative;
             width: 100%;
@@ -61,7 +58,6 @@
             z-index: 10;
         }
 
-        /* 响应式文字大小 */
         :root {
             --text-xs: 12px;
             --text-sm: 14px;
@@ -72,7 +68,6 @@
             --text-3xl: 52px;
         }
 
-        /* 左侧栏 */
         .left-panel {
             height: 100%;
             background: rgba(18, 18, 31, 0.9);
@@ -118,7 +113,6 @@
             color: #44ff88;
         }
 
-        /* 热量条 */
         .heat-section {
             margin-top: 6px;
         }
@@ -168,7 +162,6 @@
             min-height: 14px;
         }
 
-        /* 遗物列表 */
         .relic-section {
             margin-top: auto;
         }
@@ -198,7 +191,6 @@
             color: #6666aa;
         }
 
-        /* 中间主舞台 */
         .center-panel {
             height: 100%;
             display: flex;
@@ -214,7 +206,6 @@
             text-align: center;
         }
 
-        /* 数值区 */
         .stats-section {
             display: flex;
             justify-content: center;
@@ -246,7 +237,6 @@
             color: #6666aa;
         }
 
-        /* 预计结算分 */
         .estimated-section {
             text-align: center;
             padding: 10px 0;
@@ -270,7 +260,6 @@
             margin-top: 2px;
         }
 
-        /* 模块卡片区 */
         .modules-section {
             display: flex;
             justify-content: center;
@@ -348,7 +337,6 @@
             opacity: 0.9;
         }
 
-        /* 底部按钮区 */
         .buttons-section {
             display: flex;
             justify-content: center;
@@ -408,7 +396,6 @@
             background: rgba(102, 102, 170, 0.8);
         }
 
-        /* 右侧栏 */
         .right-panel {
             height: 100%;
             background: rgba(18, 18, 31, 0.9);
@@ -514,7 +501,6 @@
             font-weight: bold;
         }
 
-        /* Menu Scene */
         .menu-container {
             width: 100%;
             height: 100%;
@@ -563,7 +549,6 @@
             margin-top: 15px;
         }
 
-        /* Relic Scene */
         .relic-select-container {
             width: 100%;
             height: 100%;
@@ -621,7 +606,6 @@
             line-height: 1.5;
         }
 
-        /* Result Scene */
         .result-container {
             width: 100%;
             height: 100%;
@@ -663,7 +647,6 @@
             margin-top: 20px;
         }
 
-        /* Feedback animations */
         .value-pop {
             position: absolute;
             font-size: var(--text-base);
@@ -758,7 +741,6 @@
             100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
         }
 
-        /* 规则说明弹窗 */
         .rules-modal-overlay {
             position: fixed;
             top: 0;
@@ -975,6 +957,32 @@
             color: #44ff88;
             margin-top: 4px;
         }
+
+        .corechip-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .corechip-info-item {
+            background: rgba(68, 68, 102, 0.2);
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 221, 68, 0.3);
+        }
+
+        .corechip-info-name {
+            font-size: var(--text-base);
+            font-weight: bold;
+            color: #ffdd44;
+            margin-bottom: 8px;
+        }
+
+        .corechip-info-desc {
+            font-size: var(--text-sm);
+            color: #aaaacc;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -984,7 +992,6 @@
         </div>
     </div>
 
-    <!-- 规则说明弹窗 -->
     <div class="rules-modal-overlay" id="rules-modal">
         <div class="rules-modal">
             <div class="rules-modal-header">
@@ -995,24 +1002,51 @@
                 <button class="rules-tab active" data-tab="basic">基础规则</button>
                 <button class="rules-tab" data-tab="modules">模块说明</button>
                 <button class="rules-tab" data-tab="relics">遗物说明</button>
+                <button class="rules-tab" data-tab="corechips">核心芯片</button>
             </div>
             <div class="rules-content">
                 <div class="rules-panel active" id="panel-basic">
                     <h3>游戏目标</h3>
                     <p>每一关需要达到目标分数才能进入下一关。关卡会无限进行下去，目标分数会越来越高。</p>
 
+                    <h3>开局流程</h3>
+                    <p>主菜单 → 选择核心芯片 → 开始游戏</p>
+                    <p>核心芯片将影响整局游戏的策略方向。</p>
+
                     <h3>回合机制</h3>
                     <ul class="rules-list">
                         <li>每关有 3 次回合机会</li>
                         <li>每回合开始时，分数相关数值（筹码、倍率、X倍率）会重置为初始值</li>
-                        <li>热量上限为 10</li>
+                        <li>热量上限为 10（缓冲核心可提升至12）</li>
                         <li>你可以随时选择"停手结算"，将本回合分数加入累计</li>
                         <li>如果热量达到上限（10），本回合过载，分数清零（部分遗物可保留部分分数）</li>
+                        <li><strong>达标即刻通关</strong>：当本关累计分数达到目标分数时，立即通关</li>
                     </ul>
 
                     <h3>分数计算</h3>
                     <p>本回合得分 = 筹码 × 倍率 × X倍率</p>
-                    <p>过关后，你可以选择一个遗物来永久强化你的build。</p>
+
+                    <h3>金币系统</h3>
+                    <p>通关后获得金币奖励，公式：</p>
+                    <p><strong>金币 = 3 + 剩余回合数 × 2 + 进度奖励</strong></p>
+                    <ul class="rules-list">
+                        <li>3：基础通关奖励</li>
+                        <li>剩余回合数：未使用的回合数，每回合返还 2 金币</li>
+                        <li>进度奖励：每 3 关额外 +1 金币</li>
+                    </ul>
+
+                    <h3>商店系统</h3>
+                    <p>通关后进入商店，可以用金币购买遗物：</p>
+                    <ul class="rules-list">
+                        <li>每5关出现一次商店</li>
+                        <li>每次商店展示 3 个可购买遗物</li>
+                        <li>遗物稀有度：普通（4金币）、稀有（6金币）、史诗（8金币）</li>
+                        <li>购买的遗物从下一关开始生效</li>
+                        <li>已拥有的遗物不会再次出现在商店</li>
+                    </ul>
+
+                    <h3>通关流程</h3>
+                    <p>达标 → 金币结算 → 选择遗物 → 商店购买 → 进入下一关</p>
                 </div>
 
                 <div class="rules-panel" id="panel-modules">
@@ -1021,6 +1055,31 @@
 
                 <div class="rules-panel" id="panel-relics">
                     <div class="relic-info-grid" id="relic-info-container"></div>
+                </div>
+
+                <div class="rules-panel" id="panel-corechips">
+                    <h3>核心芯片系统</h3>
+                    <p>开局选择核心芯片，该选择将影响整局游戏。核心芯片不计入遗物数量。</p>
+                    
+                    <h3>核心芯片列表</h3>
+                    <div class="corechip-info-grid" id="corechip-info-container">
+                        <div class="corechip-info-item">
+                            <div class="corechip-info-name">🔋 缓冲核心</div>
+                            <div class="corechip-info-desc">每回合热量上限 +2（原10 → 12）<br>作用：提高容错率和可操作空间</div>
+                        </div>
+                        <div class="corechip-info-item">
+                            <div class="corechip-info-name">⚡ 增幅核心</div>
+                            <div class="corechip-info-desc">每回合开始时，初始倍率 = 2（原1）<br>作用：提高前期基础输出</div>
+                        </div>
+                        <div class="corechip-info-item">
+                            <div class="corechip-info-name">💎 储能核心</div>
+                            <div class="corechip-info-desc">每回合开始时，初始筹码 = 40（原0）<br>作用：提高前期保底得分</div>
+                        </div>
+                        <div class="corechip-info-item">
+                            <div class="corechip-info-name">☢️ 裂变核心</div>
+                            <div class="corechip-info-desc">每回合开始时，初始X倍率 = 2（原1）<br>作用：提供高风险高收益开局</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

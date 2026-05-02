@@ -34,7 +34,7 @@ export class MenuScene extends Phaser.Scene {
             container.style.display = 'grid';
             container.style.gridTemplateColumns = '220px 1fr 220px';
             const state = createInitialState();
-            this.scene.start('GameScene', { state });
+            this.scene.start('CoreChipScene', { state });
         });
     }
 

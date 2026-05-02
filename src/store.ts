@@ -18,14 +18,17 @@ export function createInitialState(): GameState {
         modulesThisRound: [],
         lastModule: null,
         relics: [],
+        coreChip: null,
         amplifierActive: false,
         amplifierCount: 0,
+        stabilizerRemaining: 0,
         history: loadHistory(),
         log: [],
         overloaded: false,
         fuseTriggered: false,
         fuseRetainedScore: 0,
-        processing: false
+        processing: false,
+        gold: 0
     };
 }
 
@@ -42,6 +45,26 @@ export function resetRoundState(state: GameState): void {
     state.fuseTriggered = false;
     state.fuseRetainedScore = 0;
     state.processing = false;
+
+    // 初始化稳压器剩余抵消次数
+    state.stabilizerRemaining = state.relics.filter(r => r.id === 'stabilizer').length;
+
+    if (state.coreChip) {
+        switch (state.coreChip.id) {
+            case 'buffer':
+                state.maxHeat = HEAT_MAX + 2;
+                break;
+            case 'amplify':
+                state.mult = 2;
+                break;
+            case 'storage':
+                state.chips = 40;
+                break;
+            case 'fission':
+                state.xmult = 2;
+                break;
+        }
+    }
 }
 
 export function resetStageState(state: GameState): void {
@@ -49,11 +72,31 @@ export function resetStageState(state: GameState): void {
     state.stageScore = 0;
     state.round = 1;
     state.phase = GamePhase.PLAYING;
+
+    if (state.coreChip && state.coreChip.id === 'buffer') {
+        state.maxHeat = HEAT_MAX + 2;
+    }
+
     resetRoundState(state);
 }
 
 export function calculateRoundScore(state: GameState): number {
     return Math.floor(state.chips * state.mult * state.xmult);
+}
+
+export function calculateGoldReward(stage: number, currentRound: number): { base: number, remainingRounds: number, progress: number, total: number } {
+    const base = 3;
+    const remainingRounds = TOTAL_ROUNDS - currentRound;
+    const remainingReward = remainingRounds * 2;
+    const progressReward = Math.floor((stage - 1) / 3);
+    const total = base + remainingReward + progressReward;
+
+    return {
+        base,
+        remainingRounds: remainingReward,
+        progress: progressReward,
+        total
+    };
 }
 
 function loadHistory(): HistoryRecord {

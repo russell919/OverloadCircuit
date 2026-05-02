@@ -27,7 +27,7 @@ export const BlueCoreModule: ModuleInfo = {
             mult: 0,
             xmult: 0,
             heat: 0,
-            log: `抽到蓝芯 +${30 + bonus} chips${bonus > 0 ? ` (蓝色成瘾+${bonus})` : ''}`,
+            log: `抽到蓝芯 +${30 + bonus} 筹码${bonus > 0 ? ` (蓝色成瘾+${bonus})` : ''}`,
             isOverload: false
         };
     }
@@ -49,7 +49,7 @@ export const RedCoreModule: ModuleInfo = {
             mult: 1 + bonus,
             xmult: 0,
             heat: 0,
-            log: `抽到红芯 +${1 + bonus} mult${bonus > 0 ? ` (红色成瘾+${bonus})` : ''}`,
+            log: `抽到红芯 +${1 + bonus} 倍率${bonus > 0 ? ` (红色成瘾+${bonus})` : ''}`,
             isOverload: false
         };
     }
@@ -63,10 +63,17 @@ export const YellowCoreModule: ModuleInfo = {
     description: '高热筹码',
     effectText: '+60 筹码 / +2 热量',
     apply(state: GameState): ModuleResult {
+        // 每次应用黄芯时，重新计算稳压器剩余抵消次数
+        // 这样可以确保即使在场景切换后也能正确工作
+        if (state.stabilizerRemaining === undefined || state.stabilizerRemaining < 0) {
+            state.stabilizerRemaining = state.relics.filter(r => r.id === 'stabilizer').length;
+        }
+        
         let heatBonus = 2;
-        const stabilizerCount = state.relics.filter(r => r.id === 'stabilizer').length;
-        if (stabilizerCount > 0 && state.modulesThisRound.length === 0) {
+        // 检查稳压器是否还能抵消热量
+        if (state.stabilizerRemaining > 0) {
             heatBonus = 0;
+            state.stabilizerRemaining--;
         }
         state.chips += 60;
         state.heat += heatBonus;
@@ -75,7 +82,7 @@ export const YellowCoreModule: ModuleInfo = {
             mult: 0,
             xmult: 0,
             heat: heatBonus,
-            log: `抽到黄芯 +60 chips${heatBonus > 0 ? `, +${heatBonus} heat` : ', 稳压器减免热量'}`,
+            log: `抽到黄芯 +60 筹码${heatBonus > 0 ? `, +${heatBonus} 热量` : ', 稳压器抵消热量'}`,
             isOverload: false
         };
     }
@@ -92,7 +99,7 @@ export const CoolantModule: ModuleInfo = {
         const heatReduce = 3;
         let chipBonus = 0;
         const finCount = state.relics.filter(r => r.id === 'heat_fin').length;
-        if (finCount > 0 && state.modulesThisRound.length === 0) {
+        if (finCount > 0 && !state.modulesThisRound.some(m => m.id === 'coolant')) {
             chipBonus = 25;
             state.chips += chipBonus;
         }
@@ -102,7 +109,7 @@ export const CoolantModule: ModuleInfo = {
             mult: 0,
             xmult: 0,
             heat: -heatReduce,
-            log: `抽到冷却 -${heatReduce} heat${chipBonus > 0 ? `, 散热鳍片+${chipBonus}chips` : ''}`,
+            log: `抽到冷却 -${heatReduce} 热量${chipBonus > 0 ? `, 散热鳍片+${chipBonus}筹码` : ''}`,
             isOverload: false
         };
     }
@@ -179,7 +186,7 @@ export const FissionModule: ModuleInfo = {
             mult: 0,
             xmult: 1,
             heat: 0,
-            log: '抽到裂变 xmult +1',
+            log: '抽到裂变 X倍率 +1',
             isOverload: false
         };
     }

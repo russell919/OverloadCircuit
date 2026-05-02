@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS, getStageTarget, TOTAL_ROUNDS } from '../constants';
 import { GameState, Module, ModuleResult, GamePhase } from '../types';
-import { createInitialState, resetRoundState, calculateRoundScore, saveHistory, hasRelic, countRelic, resetStageState } from '../store';
+import { createInitialState, resetRoundState, calculateRoundScore, saveHistory, hasRelic, countRelic, resetStageState, calculateGoldReward } from '../store';
 import { getWeightedRandomModule, ModuleInfo, getAllModules } from '../modules';
 import { getAllRelics } from '../relics';
 
@@ -28,6 +28,13 @@ export class GameScene extends Phaser.Scene {
     create(): void {
         this.cameras.main.setBackgroundColor(COLORS.BACKGROUND);
 
+        // 如果是新游戏开始（log为空），需要先初始化回合状态
+        if (this.state.phase === GamePhase.PLAYING && this.state.log.length === 0) {
+            resetRoundState(this.state);
+            this.state.log.push(`=== 第 ${this.state.stage} 关开始 ===`);
+            this.state.log.push(`目标: ${getStageTarget(this.state.stage).toLocaleString()} 分`);
+        }
+
         this.uiContainer = document.getElementById('game-ui')!;
         this.uiContainer.style.display = 'grid';
         this.uiContainer.style.gridTemplateColumns = '220px 1fr 220px';
@@ -36,11 +43,6 @@ export class GameScene extends Phaser.Scene {
         this.bindGameEvents();
         this.updateAllUI();
         this.populateRulesModal();
-
-        if (this.state.phase === GamePhase.PLAYING && this.state.log.length === 0) {
-            this.state.log.push(`=== 第 ${this.state.stage} 关开始 ===`);
-            this.state.log.push(`目标: ${getStageTarget(this.state.stage).toLocaleString()} 分`);
-        }
 
         this.scale.on('resize', this.onResize, this);
     }
@@ -51,9 +53,14 @@ export class GameScene extends Phaser.Scene {
             ? this.state.relics.slice(0, 5).map(r => `<span class="relic-item">${r.name}</span>`).join('')
             : '<span class="relic-more">无</span>';
 
+        const coreChipDisplay = this.state.coreChip
+            ? `<div class="core-chip-display" style="color: #ffdd44; font-size: 12px; margin-top: 5px;">核心芯片: ${this.state.coreChip.name}</div>`
+            : '';
+
         return `
             <div class="left-panel">
                 <div class="game-title">过载回路</div>
+                ${coreChipDisplay}
 
                 <div class="info-block">
                     <div class="info-label">当前关卡</div>
@@ -73,6 +80,11 @@ export class GameScene extends Phaser.Scene {
                 <div class="info-block">
                     <div class="info-label">本关累计分</div>
                     <div class="info-value score" id="stage-score-value">${this.state.stageScore.toLocaleString()}</div>
+                </div>
+
+                <div class="info-block">
+                    <div class="info-label">当前金币</div>
+                    <div class="info-value" style="color: #ffd700;" id="gold-value">${this.state.gold}</div>
                 </div>
 
                 <div class="heat-section">
@@ -166,7 +178,6 @@ export class GameScene extends Phaser.Scene {
 
         if (relicContainer) {
             const allRelics = getAllRelics();
-            const ownedRelicIds = this.state.relics.map(r => r.id);
             const relicCounts: Record<string, number> = {};
             this.state.relics.forEach(r => {
                 relicCounts[r.id] = (relicCounts[r.id] || 0) + 1;
@@ -216,6 +227,9 @@ export class GameScene extends Phaser.Scene {
 
         const stageScoreValue = document.getElementById('stage-score-value')!;
         stageScoreValue.textContent = this.state.stageScore.toLocaleString();
+
+        const goldValue = document.getElementById('gold-value')!;
+        goldValue.textContent = this.state.gold.toString();
 
         const chipsValue = document.getElementById('chips-value')!;
         chipsValue.textContent = this.state.chips.toLocaleString();
@@ -393,7 +407,7 @@ export class GameScene extends Phaser.Scene {
                 const count = this.state.modulesThisRound.length;
                 if (count % 3 === 0) {
                     this.state.mult += 1;
-                    this.state.log.push(`[超导线圈] 触发: +1 mult (第${count}抽)`);
+                    this.state.log.push(`[超导线圈] 触发: +1 倍率 (第${count}抽)`);
                 }
             }
         }
@@ -404,7 +418,7 @@ export class GameScene extends Phaser.Scene {
                     const extra = result.chips;
                     if (extra > 0) {
                         this.state.chips += extra;
-                        this.state.log.push(`[失控回路] 触发: chips翻倍 +${extra}`);
+                        this.state.log.push(`[失控回路] 触发: 筹码翻倍 +${extra}`);
                     }
                 }
             }
@@ -496,7 +510,7 @@ export class GameScene extends Phaser.Scene {
         if (hasRelic(this.state, 'extreme_paranoia') && this.state.heat >= 9) {
             const bonusXmult = 2 * countRelic(this.state, 'extreme_paranoia');
             this.state.xmult += bonusXmult;
-            this.state.log.push(`[极限偏执] 触发: xmult +${bonusXmult} (heat=${this.state.heat})`);
+            this.state.log.push(`[极限偏执] 触发: X倍率 +${bonusXmult} (热量=${this.state.heat})`);
         }
 
         if (hasRelic(this.state, 'idle_supercharge')) {
@@ -504,7 +518,7 @@ export class GameScene extends Phaser.Scene {
             if (!hasCoolant) {
                 const bonus = countRelic(this.state, 'idle_supercharge');
                 this.state.xmult += bonus;
-                this.state.log.push(`[空转增压] 触发: xmult +${bonus}`);
+                this.state.log.push(`[空转增压] 触发: X倍率 +${bonus}`);
             }
         }
 
@@ -551,15 +565,17 @@ export class GameScene extends Phaser.Scene {
     }
 
     private finishRound(): void {
+        const target = getStageTarget(this.state.stage);
+
+        if (this.state.stageScore >= target) {
+            this.triggerStageClear();
+            return;
+        }
+
         this.state.round++;
 
         if (this.state.round > TOTAL_ROUNDS) {
-            const target = getStageTarget(this.state.stage);
-            if (this.state.stageScore >= target) {
-                this.triggerStageClear();
-            } else {
-                this.triggerGameOver();
-            }
+            this.triggerGameOver();
         } else {
             resetRoundState(this.state);
             this.state.log.push('');
@@ -572,22 +588,18 @@ export class GameScene extends Phaser.Scene {
         this.state.phase = GamePhase.STAGE_CLEAR;
         saveHistory(this.state);
 
+        const goldReward = calculateGoldReward(this.state.stage, this.state.round - 1);
+        this.state.gold += goldReward.total;
+        this.state.goldReward = goldReward;
+
         this.state.log.push('');
         this.state.log.push('🎉🎉🎉');
         this.state.log.push(`第 ${this.state.stage} 关通过！`);
         this.state.log.push(`累计: ${this.state.stageScore.toLocaleString()}`);
+        this.state.log.push(`获得金币: ${goldReward.total}`);
         this.state.log.push('🎉🎉🎉');
 
-        const gameUi = document.getElementById('game-ui')!;
-        const clearText = document.createElement('div');
-        clearText.className = 'stage-clear-text';
-        clearText.textContent = '🎉 关卡通过！';
-        gameUi.appendChild(clearText);
-
-        setTimeout(() => {
-            clearText.remove();
-            this.scene.start('RelicScene', { state: this.state });
-        }, 2000);
+        this.scene.start('RelicScene', { state: this.state });
     }
 
     private triggerGameOver(): void {
