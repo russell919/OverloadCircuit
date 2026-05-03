@@ -84,6 +84,38 @@ export function calculateRoundScore(state: GameState): number {
     return Math.floor(state.chips * state.mult * state.xmult);
 }
 
+export function calculateDangerStopBonus(state: GameState): { bonus: number, multiplier: number, label: string } | null {
+    if (state.overloaded || state.heat === 0) {
+        return null;
+    }
+
+    const heatRatio = state.heat / state.maxHeat;
+
+    if (heatRatio >= 0.9) {
+        return { bonus: 0, multiplier: 0.6, label: '高压停手奖励: +60%' };
+    } else if (heatRatio >= 0.8) {
+        return { bonus: 0, multiplier: 0.3, label: '危险停手奖励: +30%' };
+    } else if (heatRatio >= 0.7) {
+        return { bonus: 0, multiplier: 0.15, label: '危险停手奖励: +15%' };
+    }
+
+    return null;
+}
+
+export function calculateOverachievementGold(stageScore: number, targetScore: number): { tier: number, bonus: number } {
+    const ratio = stageScore / targetScore;
+
+    if (ratio >= 4.0) {
+        return { tier: 3, bonus: 3 };
+    } else if (ratio >= 2.5) {
+        return { tier: 2, bonus: 2 };
+    } else if (ratio >= 1.5) {
+        return { tier: 1, bonus: 1 };
+    }
+
+    return { tier: 0, bonus: 0 };
+}
+
 export function calculateGoldReward(stage: number, currentRound: number): { base: number, remainingRounds: number, progress: number, total: number } {
     const base = 3;
     const remainingRounds = TOTAL_ROUNDS - currentRound;

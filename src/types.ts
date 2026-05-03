@@ -58,6 +58,7 @@ export interface GoldRewardBreakdown {
     remainingRounds: number;
     progress: number;
     total: number;
+    overachievement?: { tier: number; bonus: number };
 }
 
 export interface GameState {

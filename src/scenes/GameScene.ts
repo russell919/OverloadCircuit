@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS, getStageTarget, TOTAL_ROUNDS } from '../constants';
 import { GameState, Module, ModuleResult, GamePhase } from '../types';
-import { createInitialState, resetRoundState, calculateRoundScore, saveHistory, hasRelic, countRelic, resetStageState, calculateGoldReward } from '../store';
+import { createInitialState, resetRoundState, calculateRoundScore, saveHistory, hasRelic, countRelic, resetStageState, calculateGoldReward, calculateDangerStopBonus, calculateOverachievementGold } from '../store';
 import { getWeightedRandomModule, ModuleInfo, getAllModules } from '../modules';
 import { getAllRelics } from '../relics';
 
@@ -507,6 +507,7 @@ export class GameScene extends Phaser.Scene {
         this.state.processing = true;
         this.buttonsDisabled = true;
 
+        // 第一步：先应用所有遗物效果
         if (hasRelic(this.state, 'extreme_paranoia') && this.state.heat >= 9) {
             const bonusXmult = 2 * countRelic(this.state, 'extreme_paranoia');
             this.state.xmult += bonusXmult;
@@ -522,29 +523,36 @@ export class GameScene extends Phaser.Scene {
             }
         }
 
-        if (this.state.heat >= 8 && this.state.heat < this.state.maxHeat) {
-            const riskBonus = Math.floor(calculateRoundScore(this.state) * 0.25);
-            if (riskBonus > 0) {
-                this.state.stageScore += riskBonus;
-                this.state.log.push(`⚡ 惊险结算奖励: +${riskBonus.toLocaleString()}`);
-            }
-        }
-
+        // 第二步：计算基础回合得分
         const roundScore = calculateRoundScore(this.state);
-
-        this.state.roundScore = roundScore;
-        if (roundScore > this.state.maxRoundScore) {
-            this.state.maxRoundScore = roundScore;
+        let finalRoundScore = roundScore;
+        
+        // 第三步：计算危险停手奖励
+        const dangerBonus = calculateDangerStopBonus(this.state);
+        if (dangerBonus) {
+            const bonusScore = Math.floor(roundScore * dangerBonus.multiplier);
+            finalRoundScore += bonusScore;
+            this.state.log.push(dangerBonus.label);
+            this.state.log.push(`危险停手加成: +${bonusScore.toLocaleString()}`);
         }
-        this.state.stageScore += roundScore;
-        this.state.totalScore += roundScore;
+
+        // 第四步：更新状态
+        this.state.roundScore = finalRoundScore;
+        if (finalRoundScore > this.state.maxRoundScore) {
+            this.state.maxRoundScore = finalRoundScore;
+        }
+        this.state.stageScore += finalRoundScore;
+        this.state.totalScore += finalRoundScore;
 
         this.state.log.push('═══════════════════');
         this.state.log.push(`结算: ${this.state.chips} × ${this.state.mult} × ${this.state.xmult} = ${roundScore.toLocaleString()}`);
+        if (dangerBonus) {
+            this.state.log.push(`危险停手: ${dangerBonus.label} → 最终得分 +${finalRoundScore.toLocaleString()}`);
+        }
         this.state.log.push(`本关累计: ${this.state.stageScore.toLocaleString()}`);
         this.state.log.push('═══════════════════');
 
-        this.showSettleAnimation(roundScore);
+        this.showSettleAnimation(finalRoundScore);
         this.updateAllUI();
 
         setTimeout(() => {
@@ -589,14 +597,25 @@ export class GameScene extends Phaser.Scene {
         saveHistory(this.state);
 
         const goldReward = calculateGoldReward(this.state.stage, this.state.round - 1);
-        this.state.gold += goldReward.total;
-        this.state.goldReward = goldReward;
+        const target = getStageTarget(this.state.stage);
+        const overachievement = calculateOverachievementGold(this.state.stageScore, target);
+
+        let totalGold = goldReward.total;
+        if (overachievement.bonus > 0) {
+            totalGold += overachievement.bonus;
+        }
+
+        this.state.gold += totalGold;
+        this.state.goldReward = { ...goldReward, overachievement };
 
         this.state.log.push('');
         this.state.log.push('🎉🎉🎉');
         this.state.log.push(`第 ${this.state.stage} 关通过！`);
-        this.state.log.push(`累计: ${this.state.stageScore.toLocaleString()}`);
-        this.state.log.push(`获得金币: ${goldReward.total}`);
+        this.state.log.push(`累计: ${this.state.stageScore.toLocaleString()} / ${target.toLocaleString()}`);
+        if (overachievement.bonus > 0) {
+            this.state.log.push(`超额突破奖励: +${overachievement.bonus} 金币`);
+        }
+        this.state.log.push(`获得金币: ${totalGold}`);
         this.state.log.push('🎉🎉🎉');
 
         this.scene.start('RelicScene', { state: this.state });

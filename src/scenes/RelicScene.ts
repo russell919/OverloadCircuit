@@ -109,6 +109,8 @@ export class RelicScene extends Phaser.Scene {
         
         const target = 400 * Math.pow(1.5, this.state.stage - 1);
         const reward = this.state.goldReward;
+        const overachievementBonus = reward.overachievement?.bonus || 0;
+        const totalWithBonus = reward.total + overachievementBonus;
         
         return `
             <div style="background: rgba(18, 18, 31, 0.95); border: 2px solid #6666aa; border-radius: 12px; padding: 1rem; max-width: 500px; width: 100%; margin: 0 auto;">
@@ -120,12 +122,14 @@ export class RelicScene extends Phaser.Scene {
                         <div>本关目标: ${Math.floor(target).toLocaleString()} 分</div>
                         <div>本关累计: ${this.state.stageScore.toLocaleString()} 分</div>
                         <div>第 ${this.state.round - 1} 回合达标</div>
+                        ${overachievementBonus > 0 ? `<div style="color: #ffaa00;">超额突破: ${((this.state.stageScore / target) * 100).toFixed(1)}%</div>` : ''}
                     </div>
                     <div style="text-align: right; font-size: 0.9rem; color: #aaaacc;">
                         <div>基础奖励: +${reward.base} 金币</div>
                         <div>剩余回合: +${reward.remainingRounds} 金币</div>
                         <div>进度奖励: +${reward.progress} 金币</div>
-                        <div style="color: #ffd700; font-weight: bold; margin-top: 5px;">合计: +${reward.total} 金币</div>
+                        ${overachievementBonus > 0 ? `<div style="color: #ffaa00;">超额突破: +${overachievementBonus} 金币</div>` : ''}
+                        <div style="color: #ffd700; font-weight: bold; margin-top: 5px;">合计: +${totalWithBonus} 金币</div>
                     </div>
                 </div>
             </div>
