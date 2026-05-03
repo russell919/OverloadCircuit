@@ -9,9 +9,7 @@
 - 回合结束后检查累计分是否达标，达标即刻通关
 - 剩余回合转为金币
 - 3回合后未达标则失败
-
 ## Requirements
-
 ### Requirement: Game Flow Control
 游戏 MUST 按照预设流程进行，确保状态正确转换。
 
@@ -43,6 +41,19 @@ Then 游戏失败，显示结算界面
 Given 玩家在第1回合达标通关，剩余2回合
 When 通关结算时
 Then 获得2个金币的剩余回合奖励
+
+### Requirement: Risk-stop Identity Declaration
+规则说明中 MUST 主动强调游戏身份，区分于其他牌型构筑游戏。
+
+#### Scenario: Rule Screen Display
+Given 玩家查看规则说明
+When 进入规则第一屏
+Then 显示："这不是出牌游戏，而是抽取、过热、停手的超频停手游戏。"
+
+#### Scenario: README Documentation
+Given 玩家查看README
+When 阅读"与小丑牌的差异"小节
+Then 明确说明本作核心是"抽取—过热—停手"的即时风险循环
 
 ## Acceptance Criteria
 - 玩家能完成完整的一局游戏

@@ -9,9 +9,7 @@
 - 商店展示可用遗物
 - 已售出遗物不再显示
 - 通关奖励随关卡进度递增
-
 ## Requirements
-
 ### Requirement: Gold Calculation
 金币计算 MUST 准确无误。
 
@@ -43,6 +41,42 @@ Then 购买失败，显示提示信息
 Given 第1关进度奖励为0，第5关进度奖励为4
 When 在第5关通关
 Then 获得4金币的进度奖励
+
+### Requirement: Over-clear Gold Bonus
+通关时系统 MUST 根据本关累计分与目标分的比例给予额外金币奖励。
+
+#### Scenario: Over-clear Bonus Tier 1
+Given targetScore=1000, stageScore=1600
+When 通关结算
+Then extraGold=1
+
+#### Scenario: Over-clear Bonus Tier 2
+Given targetScore=1000, stageScore=2600
+When 通关结算
+Then extraGold=2
+
+#### Scenario: Over-clear Bonus Tier 3
+Given targetScore=1000, stageScore=4100
+When 通关结算
+Then extraGold=3
+
+#### Scenario: No Over-clear Bonus
+Given targetScore=1000, stageScore=1400
+When 通关结算
+Then extraGold=0
+
+#### Scenario: Highest Tier Only
+Given targetScore=1000, stageScore=5000
+When 通关结算
+Then extraGold=3 (不叠加，取最高档)
+
+### Requirement: Bonus Integration
+超额通关金币奖励 MUST 正确加入实际金币奖励总额。
+
+#### Scenario: Gold Reward Calculation
+Given baseGold=5, extraGold=2
+When 计算通关奖励
+Then totalGold=7
 
 ## Acceptance Criteria
 - 通关后正确获得金币

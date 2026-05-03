@@ -9,9 +9,7 @@
 - 玩家可抽取模块或停手
 - 热量达到上限则过载
 - 过载时本回合得分清零，进入下回合或失败
-
 ## Requirements
-
 ### Requirement: Round Score Calculation
 回合得分 MUST 按照公式正确计算。
 
@@ -43,6 +41,47 @@ Then 本回合得分清零，不加入累计分
 Given 当前关卡累计分为800，回合得分为300
 When 结算时
 Then 关卡累计分更新为1100
+
+### Requirement: Risk Stop Bonus
+玩家主动停手结算时，系统 MUST 根据当前热量与热量上限的比例给予最终分数奖励。
+
+#### Scenario: Risk Stop Bonus at 70%
+Given heatLimit=10, heat=7, baseScore=1000
+When 玩家主动停手结算
+Then finalRoundScore = 1000 + (1000 × 0.15) = 1150
+
+#### Scenario: Risk Stop Bonus at 80%
+Given heatLimit=10, heat=8, baseScore=1000
+When 玩家主动停手结算
+Then finalRoundScore = 1000 + (1000 × 0.30) = 1300
+
+#### Scenario: Risk Stop Bonus at 90%
+Given heatLimit=10, heat=9, baseScore=1000
+When 玩家主动停手结算
+Then finalRoundScore = 1000 + (1000 × 0.60) = 1600
+
+#### Scenario: Risk Stop Bonus with Extended Heat Limit
+Given heatLimit=12, heat=11, baseScore=1000
+When 玩家主动停手结算
+Then finalRoundScore = 1000 + (1000 × 0.60) = 1600
+
+#### Scenario: No Bonus Below 70%
+Given heatLimit=10, heat=6, baseScore=1000
+When 玩家主动停手结算
+Then finalRoundScore = 1000 (无奖励)
+
+#### Scenario: No Bonus on Overload
+Given heatLimit=10, heat=10, baseScore=1000
+When 触发过载
+Then finalRoundScore = 0 (不触发危险停手奖励)
+
+### Requirement: Bonus Application
+危险停手奖励 MUST 正确应用到最终回合得分，并加入关卡累计分。
+
+#### Scenario: Bonus Added to Stage Score
+Given baseScore=1000, heatRatio=0.85, stageScore=500
+When 玩家主动停手结算
+Then bonusScore=300, stageScore更新为800
 
 ## Acceptance Criteria
 - 分数计算正确
