@@ -27,6 +27,7 @@ export class GameScene extends Phaser.Scene {
 
     create(): void {
         this.cameras.main.setBackgroundColor(COLORS.BACKGROUND);
+        this.buttonsDisabled = false;
 
         // 如果是新游戏开始（log为空），需要先初始化回合状态
         if (this.state.phase === GamePhase.PLAYING && this.state.log.length === 0) {
@@ -132,14 +133,14 @@ export class GameScene extends Phaser.Scene {
                     </div>
                 </div>
 
+                <div class="modules-section" id="modules-section"></div>
+
                 <div class="preview-final-section">
                     <div class="preview-final-label">预估结算分数</div>
                     <div class="preview-final-value" id="preview-final-value">${calculateSettlementPreview(this.state).previewFinalScore.toLocaleString()}</div>
                 </div>
 
                 <div class="breakdown-panel" id="breakdown-panel"></div>
-
-                <div class="modules-section" id="modules-section"></div>
 
                 <div class="buttons-section">
                     <button class="btn primary" id="btn-draw">抽取模块</button>

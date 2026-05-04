@@ -219,9 +219,23 @@ export function calculateSettlementPreview(state: GameState): SettlementPreview 
         }
     }
 
-    const baseScore = calculateRoundScore(state);
+    const baseScore = Math.floor(state.chips * state.mult * effectiveXmult);
     let previewFinalScore = baseScore;
     let riskStopBonusRate = 0;
+
+    if (hasRelic(state, 'out_of_control_circuit') && state.heat >= 7) {
+        const multiplier = countRelic(state, 'out_of_control_circuit');
+        const bonusChips = state.chips * multiplier;
+        const bonusScore = Math.floor(bonusChips * state.mult * state.xmult);
+        previewFinalScore += bonusScore;
+        breakdownItems.push({
+            name: '失控回路',
+            condition: `热量 ${state.heat}/${state.maxHeat}`,
+            value: bonusScore,
+            description: `筹码 ×${1 + multiplier}`
+        });
+        appliedModifiers.push('out_of_control_circuit');
+    }
 
     if (!state.overloaded) {
         const dangerBonus = calculateDangerStopBonus(state);
