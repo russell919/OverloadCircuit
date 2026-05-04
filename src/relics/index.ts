@@ -116,13 +116,11 @@ export function getRelicDescription(relic: Relic): string {
     return relic.description;
 }
 
-export function getShopRelics(stage: number, ownedRelicIds: string[]): Relic[] {
-    const availableRelics = ALL_RELICS.filter(relic => !ownedRelicIds.includes(relic.id));
-    if (availableRelics.length === 0) return [];
-
+export function getShopRelics(stage: number): Relic[] {
     const result: Relic[] = [];
+
     const getRelicByRarity = (rarity: string): Relic | null => {
-        const relics = availableRelics.filter(r => r.rarity === rarity);
+        const relics = ALL_RELICS.filter(r => r.rarity === rarity);
         if (relics.length > 0) {
             return relics[Math.floor(Math.random() * relics.length)];
         }
@@ -130,7 +128,7 @@ export function getShopRelics(stage: number, ownedRelicIds: string[]): Relic[] {
     };
 
     const getRandomRelic = (): Relic => {
-        return availableRelics[Math.floor(Math.random() * availableRelics.length)];
+        return ALL_RELICS[Math.floor(Math.random() * ALL_RELICS.length)];
     };
 
     for (let i = 0; i < 3; i++) {
@@ -157,12 +155,14 @@ export function getShopRelics(stage: number, ownedRelicIds: string[]): Relic[] {
         if (!result.find(r => r.id === relic.id)) {
             result.push(relic);
         } else {
-            const otherRelics = availableRelics.filter(r => !result.find(x => x.id === r.id));
+            const otherRelics = ALL_RELICS.filter(r => !result.find(x => x.id === r.id));
             if (otherRelics.length > 0) {
                 result.push(otherRelics[0]);
+            } else {
+                result.push(relic);
             }
         }
     }
 
-    return result.slice(0, Math.min(3, availableRelics.length));
+    return result;
 }

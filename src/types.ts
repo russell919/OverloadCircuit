@@ -101,3 +101,21 @@ export interface HistoryRecord {
     highestRoundScore: number;
     highestTotalScore: number;
 }
+
+export interface SettlementBreakdownItem {
+    name: string;
+    condition: string;
+    value: number;
+    description?: string;
+    multiplier?: number;
+}
+
+export interface SettlementPreview {
+    baseScore: number;
+    previewFinalScore: number;
+    breakdownItems: SettlementBreakdownItem[];
+    appliedModifiers: string[];
+    riskStopBonusRate: number;
+    effectiveMult: number;
+    effectiveXmult: number;
+}

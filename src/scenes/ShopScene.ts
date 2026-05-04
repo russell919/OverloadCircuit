@@ -15,8 +15,7 @@ export default class ShopScene extends Phaser.Scene {
 
     init(data: { state: GameState }): void {
         this.state = data.state;
-        const ownedRelicIds = this.state.relics.map(r => r.id);
-        const relics = getShopRelics(this.state.stage, ownedRelicIds);
+        const relics = getShopRelics(this.state.stage);
         this.shopItems = relics.map(relic => ({ relic, sold: false }));
     }
 
@@ -122,56 +121,60 @@ export default class ShopScene extends Phaser.Scene {
             epic: '史诗'
         };
 
+        const isPlaceholder = item.relic.id === 'placeholder';
+
         card.style.cssText = `
             width: 280px;
-            background: #12121f;
-            border: 2px solid ${rarityColors[item.relic.rarity]};
+            background: ${isPlaceholder ? '#1a1a2e' : '#12121f'};
+            border: 2px solid ${isPlaceholder ? '#444' : rarityColors[item.relic.rarity]};
             border-radius: 12px;
             padding: 1.5rem;
             display: flex;
             flex-direction: column;
             gap: 1rem;
-            opacity: ${item.sold ? 0.5 : 1};
+            opacity: ${item.sold || isPlaceholder ? 0.5 : 1};
         `;
 
         // 遗物名称
         const name = document.createElement('h3');
         name.textContent = item.relic.name;
         name.style.cssText = `
-            color: ${rarityColors[item.relic.rarity]};
+            color: ${isPlaceholder ? '#666' : rarityColors[item.relic.rarity]};
             font-size: 1.5rem;
             margin: 0;
             text-align: center;
         `;
         card.appendChild(name);
 
-        // 稀有度
-        const rarity = document.createElement('div');
-        rarity.textContent = rarityText[item.relic.rarity];
-        rarity.style.cssText = `
-            color: ${rarityColors[item.relic.rarity]};
-            font-size: 0.9rem;
-            text-align: center;
-            opacity: 0.8;
-        `;
-        card.appendChild(rarity);
+        if (!isPlaceholder) {
+            // 稀有度
+            const rarity = document.createElement('div');
+            rarity.textContent = rarityText[item.relic.rarity];
+            rarity.style.cssText = `
+                color: ${rarityColors[item.relic.rarity]};
+                font-size: 0.9rem;
+                text-align: center;
+                opacity: 0.8;
+            `;
+            card.appendChild(rarity);
 
-        // 价格
-        const price = document.createElement('div');
-        price.textContent = `价格: ${item.relic.price} 金币`;
-        price.style.cssText = `
-            color: #ffd700;
-            font-size: 1.2rem;
-            font-weight: bold;
-            text-align: center;
-        `;
-        card.appendChild(price);
+            // 价格
+            const price = document.createElement('div');
+            price.textContent = `价格: ${item.relic.price} 金币`;
+            price.style.cssText = `
+                color: #ffd700;
+                font-size: 1.2rem;
+                font-weight: bold;
+                text-align: center;
+            `;
+            card.appendChild(price);
+        }
 
         // 描述
         const desc = document.createElement('p');
         desc.textContent = item.relic.description;
         desc.style.cssText = `
-            color: #aaaacc;
+            color: ${isPlaceholder ? '#555' : '#aaaacc'};
             font-size: 1rem;
             line-height: 1.5;
             text-align: center;
@@ -182,21 +185,21 @@ export default class ShopScene extends Phaser.Scene {
 
         // 购买按钮
         const buyBtn = document.createElement('button');
-        buyBtn.textContent = item.sold ? '已售出' : '购买';
-        buyBtn.disabled = item.sold || this.state.gold < item.relic.price;
+        buyBtn.textContent = isPlaceholder ? '暂不可用' : item.sold ? '已售出' : '购买';
+        buyBtn.disabled = isPlaceholder || item.sold || this.state.gold < item.relic.price;
         buyBtn.style.cssText = `
             padding: 0.8rem;
             font-size: 1.1rem;
-            background: ${item.sold ? '#666' : this.state.gold >= item.relic.price ? '#4488ff' : '#666'};
+            background: ${isPlaceholder ? '#333' : item.sold ? '#666' : this.state.gold >= item.relic.price ? '#4488ff' : '#666'};
             color: #fff;
             border: none;
             border-radius: 8px;
-            cursor: ${item.sold || this.state.gold < item.relic.price ? 'not-allowed' : 'pointer'};
+            cursor: ${isPlaceholder || item.sold || this.state.gold < item.relic.price ? 'not-allowed' : 'pointer'};
             font-weight: bold;
             transition: all 0.2s;
         `;
 
-        if (!item.sold) {
+        if (!isPlaceholder && !item.sold) {
             buyBtn.addEventListener('click', () => {
                 if (this.state.gold >= item.relic.price) {
                     this.buyItem(index, buyBtn);

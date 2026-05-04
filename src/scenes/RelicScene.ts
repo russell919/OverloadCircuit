@@ -20,8 +20,7 @@ export class RelicScene extends Phaser.Scene {
         
         this.showShop = this.state.stage % 5 === 0;
         if (this.showShop) {
-            const ownedRelicIds = this.state.relics.map(r => r.id);
-            const shopRelics = getShopRelics(this.state.stage, ownedRelicIds);
+            const shopRelics = getShopRelics(this.state.stage);
             this.shopItems = shopRelics.map(relic => ({ relic, sold: false }));
         }
     }

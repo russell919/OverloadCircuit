@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS, getStageTarget, TOTAL_ROUNDS } from '../constants';
 import { GameState, Module, ModuleResult, GamePhase } from '../types';
-import { createInitialState, resetRoundState, calculateRoundScore, saveHistory, hasRelic, countRelic, resetStageState, calculateGoldReward, calculateDangerStopBonus, calculateOverachievementGold } from '../store';
+import { createInitialState, resetRoundState, calculateRoundScore, saveHistory, hasRelic, countRelic, resetStageState, calculateGoldReward, calculateDangerStopBonus, calculateOverachievementGold, calculateSettlementPreview } from '../store';
 import { getWeightedRandomModule, ModuleInfo, getAllModules } from '../modules';
 import { getAllRelics } from '../relics';
 
@@ -125,13 +125,19 @@ export class GameScene extends Phaser.Scene {
                         <div class="stat-value xmult" id="xmult-value">×${this.state.xmult}</div>
                         <div class="stat-label">X倍率</div>
                     </div>
+                    <div class="stat-divider">=</div>
+                    <div class="stat-item base-item">
+                        <div class="stat-value base" id="base-value">${calculateRoundScore(this.state).toLocaleString()}</div>
+                        <div class="stat-label">基础分</div>
+                    </div>
                 </div>
 
-                <div class="estimated-section">
-                    <div class="estimated-label">预计结算分</div>
-                    <div class="estimated-value" id="estimated-value">${calculateRoundScore(this.state).toLocaleString()}</div>
-                    <div class="formula" id="formula">${this.state.chips} × ${this.state.mult} × ${this.state.xmult} = ${calculateRoundScore(this.state).toLocaleString()}</div>
+                <div class="preview-final-section">
+                    <div class="preview-final-label">预估结算分数</div>
+                    <div class="preview-final-value" id="preview-final-value">${calculateSettlementPreview(this.state).previewFinalScore.toLocaleString()}</div>
                 </div>
+
+                <div class="breakdown-panel" id="breakdown-panel"></div>
 
                 <div class="modules-section" id="modules-section"></div>
 
@@ -240,12 +246,44 @@ export class GameScene extends Phaser.Scene {
         const xmultValue = document.getElementById('xmult-value')!;
         xmultValue.textContent = `×${this.state.xmult}`;
 
-        const estScore = calculateRoundScore(this.state);
-        const estimatedValue = document.getElementById('estimated-value')!;
-        estimatedValue.textContent = estScore.toLocaleString();
+        const baseScore = calculateRoundScore(this.state);
+        const baseValue = document.getElementById('base-value');
+        if (baseValue) {
+            baseValue.textContent = baseScore.toLocaleString();
+        }
 
-        const formula = document.getElementById('formula')!;
-        formula.textContent = `${this.state.chips} × ${this.state.mult} × ${this.state.xmult} = ${estScore.toLocaleString()}`;
+        const preview = calculateSettlementPreview(this.state);
+        const previewFinalValue = document.getElementById('preview-final-value');
+        if (previewFinalValue) {
+            previewFinalValue.textContent = preview.previewFinalScore.toLocaleString();
+        }
+
+        const breakdownPanel = document.getElementById('breakdown-panel');
+        if (breakdownPanel) {
+            if (preview.breakdownItems.length > 1) {
+                let breakdownHtml = '<div class="breakdown-title">分数增幅原因</div>';
+                preview.breakdownItems.forEach((item, index) => {
+                    const isPositive = item.value >= 0;
+                    const valueText = isPositive && index > 0 ? `+${item.value.toLocaleString()}` : item.value.toLocaleString();
+                    breakdownHtml += `
+                        <div class="breakdown-item">
+                            <div class="breakdown-name">${item.name}</div>
+                            <div class="breakdown-desc">${item.condition}</div>
+                            <div class="breakdown-value ${isPositive ? 'positive' : 'negative'}">${valueText}</div>
+                        </div>
+                    `;
+                });
+                breakdownHtml += `
+                    <div class="breakdown-total">
+                        <span class="breakdown-total-label">最终预估</span>
+                        <span class="breakdown-total-value">${preview.previewFinalScore.toLocaleString()}</span>
+                    </div>
+                `;
+                breakdownPanel.innerHTML = breakdownHtml;
+            } else {
+                breakdownPanel.innerHTML = '<div class="breakdown-empty">暂无额外增幅</div>';
+            }
+        }
 
         const heatText = document.getElementById('heat-text')!;
         heatText.textContent = `${this.state.heat} / ${this.state.maxHeat}`;
@@ -507,8 +545,10 @@ export class GameScene extends Phaser.Scene {
         this.state.processing = true;
         this.buttonsDisabled = true;
 
-        // 第一步：先应用所有遗物效果
-        if (hasRelic(this.state, 'extreme_paranoia') && this.state.heat >= 9) {
+        const preview = calculateSettlementPreview(this.state);
+        const finalRoundScore = preview.previewFinalScore;
+
+        if (hasRelic(this.state, 'extreme_paranoia') && this.state.heat === 9) {
             const bonusXmult = 2 * countRelic(this.state, 'extreme_paranoia');
             this.state.xmult += bonusXmult;
             this.state.log.push(`[极限偏执] 触发: X倍率 +${bonusXmult} (热量=${this.state.heat})`);
@@ -523,20 +563,8 @@ export class GameScene extends Phaser.Scene {
             }
         }
 
-        // 第二步：计算基础回合得分
-        const roundScore = calculateRoundScore(this.state);
-        let finalRoundScore = roundScore;
-        
-        // 第三步：计算危险停手奖励
         const dangerBonus = calculateDangerStopBonus(this.state);
-        if (dangerBonus) {
-            const bonusScore = Math.floor(roundScore * dangerBonus.multiplier);
-            finalRoundScore += bonusScore;
-            this.state.log.push(dangerBonus.label);
-            this.state.log.push(`危险停手加成: +${bonusScore.toLocaleString()}`);
-        }
 
-        // 第四步：更新状态
         this.state.roundScore = finalRoundScore;
         if (finalRoundScore > this.state.maxRoundScore) {
             this.state.maxRoundScore = finalRoundScore;
@@ -545,31 +573,33 @@ export class GameScene extends Phaser.Scene {
         this.state.totalScore += finalRoundScore;
 
         this.state.log.push('═══════════════════');
-        this.state.log.push(`结算: ${this.state.chips} × ${this.state.mult} × ${this.state.xmult} = ${roundScore.toLocaleString()}`);
-        if (dangerBonus) {
-            this.state.log.push(`危险停手: ${dangerBonus.label} → 最终得分 +${finalRoundScore.toLocaleString()}`);
-        }
+        this.state.log.push(`结算: ${this.state.chips} × ${this.state.mult} × ${this.state.xmult} = ${preview.baseScore.toLocaleString()}`);
+        preview.breakdownItems.forEach((item, index) => {
+            if (index > 0) {
+                this.state.log.push(`${item.name}: ${item.value.toLocaleString()}`);
+            }
+        });
         this.state.log.push(`本关累计: ${this.state.stageScore.toLocaleString()}`);
         this.state.log.push('═══════════════════');
 
-        this.showSettleAnimation(finalRoundScore);
+        const previewFinalValue = document.getElementById('preview-final-value');
+        if (previewFinalValue) {
+            previewFinalValue.classList.remove('animating');
+            void previewFinalValue.offsetWidth;
+            previewFinalValue.classList.add('animating');
+        }
         this.updateAllUI();
+
+        const finalPreviewValue = document.getElementById('preview-final-value');
+        if (finalPreviewValue) {
+            finalPreviewValue.textContent = finalRoundScore.toLocaleString();
+        }
 
         setTimeout(() => {
             this.buttonsDisabled = false;
             this.state.processing = false;
             this.finishRound();
         }, 1500);
-    }
-
-    private showSettleAnimation(score: number): void {
-        const gameUi = document.getElementById('game-ui')!;
-
-        const settleScore = document.createElement('div');
-        settleScore.className = 'settle-score';
-        settleScore.textContent = score.toLocaleString();
-        gameUi.appendChild(settleScore);
-        setTimeout(() => settleScore.remove(), 1500);
     }
 
     private finishRound(): void {

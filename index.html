@@ -209,19 +209,24 @@
         .stats-section {
             display: flex;
             justify-content: center;
-            align-items: center;
-            gap: 50px;
+            align-items: flex-end;
+            gap: 15px;
             padding: 10px 0;
+            flex-wrap: wrap;
         }
 
         .stat-item {
             text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .stat-value {
             font-size: var(--text-2xl);
             font-weight: bold;
             color: #4488ff;
+            line-height: 1;
         }
 
         .stat-value.mult {
@@ -232,32 +237,146 @@
             color: #ffaa22;
         }
 
-        .stat-label {
-            font-size: var(--text-xs);
-            color: #6666aa;
-        }
-
-        .estimated-section {
-            text-align: center;
-            padding: 10px 0;
-        }
-
-        .estimated-label {
-            font-size: var(--text-sm);
+        .stat-value.base {
             color: #aaaacc;
         }
 
-        .estimated-value {
-            font-size: var(--text-3xl);
+        .stat-divider {
+            font-size: 28px;
+            color: #6666aa;
+            margin: 0 5px 4px 5px;
+            line-height: 1;
             font-weight: bold;
-            color: #44ff88;
-            text-shadow: 0 0 20px rgba(68, 255, 136, 0.4);
         }
 
-        .formula {
-            font-size: var(--text-sm);
+        .stat-label {
+            font-size: var(--text-xs);
             color: #6666aa;
-            margin-top: 2px;
+            margin-top: 4px;
+        }
+
+        .preview-final-section {
+            text-align: center;
+            padding: 20px 0;
+            pointer-events: none;
+        }
+
+        .preview-final-label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #44ff88;
+            margin-bottom: 8px;
+        }
+
+        .preview-final-value {
+            font-size: 56px;
+            font-weight: bold;
+            color: #44ff88;
+            text-shadow: 0 0 30px rgba(68, 255, 136, 0.6);
+            transition: transform 0.3s ease, text-shadow 0.3s ease;
+        }
+
+        .preview-final-value.animating {
+            animation: preview-settle 1s ease-out;
+        }
+
+        @keyframes preview-settle {
+            0% { transform: scale(1); text-shadow: 0 0 30px rgba(68, 255, 136, 0.6); }
+            30% { transform: scale(1.2); text-shadow: 0 0 50px rgba(68, 255, 136, 0.9); }
+            60% { transform: scale(1.1); text-shadow: 0 0 40px rgba(68, 255, 136, 0.7); }
+            100% { transform: scale(1); text-shadow: 0 0 30px rgba(68, 255, 136, 0.6); }
+        }
+
+        .breakdown-panel {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 10px 15px;
+            background: rgba(40, 40, 60, 0.6);
+            border-radius: 8px;
+            border: 1px solid rgba(100, 100, 140, 0.3);
+            min-height: 60px;
+            max-height: 100px;
+            overflow-y: auto;
+            pointer-events: none;
+        }
+
+        .breakdown-panel::-webkit-scrollbar {
+            display: none;
+        }
+
+        .breakdown-panel {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .breakdown-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: #aaaacc;
+            margin-bottom: 6px;
+            border-bottom: 1px solid rgba(100, 100, 140, 0.3);
+            padding-bottom: 4px;
+        }
+
+        .breakdown-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            font-size: 12px;
+        }
+
+        .breakdown-name {
+            color: #ccccdd;
+            flex: 1;
+        }
+
+        .breakdown-desc {
+            color: #8888aa;
+            font-size: 11px;
+            margin: 0 8px;
+        }
+
+        .breakdown-value {
+            font-weight: bold;
+            text-align: right;
+            min-width: 60px;
+        }
+
+        .breakdown-value.positive {
+            color: #44ff88;
+        }
+
+        .breakdown-value.negative {
+            color: #ff4444;
+        }
+
+        .breakdown-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 6px;
+            margin-top: 6px;
+            border-top: 1px solid rgba(100, 100, 140, 0.3);
+        }
+
+        .breakdown-total-label {
+            font-size: 13px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .breakdown-total-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #44ff88;
+        }
+
+        .breakdown-empty {
+            text-align: center;
+            font-size: 12px;
+            color: #6666aa;
+            padding: 8px 0;
         }
 
         .modules-section {
@@ -266,7 +385,12 @@
             gap: 10px;
             padding: 10px 0;
             flex-wrap: wrap;
+            min-height: 90px;
+            align-items: center;
+            margin-top: 8px;
         }
+
+
 
         .module-card {
             width: 110px;
@@ -697,27 +821,6 @@
             40% { transform: translate(-50%, -50%) scale(1); }
             70% { opacity: 1; }
             100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
-        }
-
-        .settle-score {
-            position: absolute;
-            top: 40%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 64px;
-            font-weight: bold;
-            color: #44ff88;
-            text-shadow: 0 0 30px rgba(68, 255, 136, 0.6);
-            animation: settle-pop 1.5s ease-out forwards;
-            z-index: 100;
-        }
-
-        @keyframes settle-pop {
-            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
-            30% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-            50% { transform: translate(-50%, -50%) scale(1); }
-            80% { opacity: 1; }
-            100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
         }
 
         .stage-clear-text {

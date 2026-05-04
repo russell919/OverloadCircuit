@@ -1,4 +1,4 @@
-import { GameState, HistoryRecord, Relic, GamePhase } from './types';
+import { GameState, HistoryRecord, Relic, GamePhase, SettlementPreview } from './types';
 import { HEAT_MAX, TOTAL_ROUNDS, STORAGE_KEYS } from './constants';
 
 export function createInitialState(): GameState {
@@ -175,4 +175,77 @@ export function hasRelic(state: GameState, relicId: string): boolean {
 
 export function countRelic(state: GameState, relicId: string): number {
     return state.relics.filter(r => r.id === relicId).length;
+}
+
+export function calculateSettlementPreview(state: GameState): SettlementPreview {
+    const breakdownItems: SettlementPreview['breakdownItems'] = [];
+    const appliedModifiers: string[] = [];
+    
+    let effectiveMult = state.mult;
+    let effectiveXmult = state.xmult;
+    
+    breakdownItems.push({
+        name: '基础构筑分',
+        condition: `${state.chips} × ${state.mult} × ${state.xmult}`,
+        value: calculateRoundScore(state)
+    });
+
+    if (hasRelic(state, 'extreme_paranoia') && state.heat === 9) {
+        const bonusXmult = 2 * countRelic(state, 'extreme_paranoia');
+        effectiveXmult += bonusXmult;
+        const bonusScore = Math.floor(state.chips * state.mult * bonusXmult);
+        breakdownItems.push({
+            name: '极限偏执',
+            condition: `热量 = 9`,
+            value: bonusScore,
+            description: `X倍率 +${bonusXmult}`
+        });
+        appliedModifiers.push('extreme_paranoia');
+    }
+
+    if (hasRelic(state, 'idle_supercharge')) {
+        const hasCoolant = state.modulesThisRound.some(m => m.id === 'coolant');
+        if (!hasCoolant) {
+            const bonus = countRelic(state, 'idle_supercharge');
+            effectiveXmult += bonus;
+            const bonusScore = Math.floor(state.chips * state.mult * bonus);
+            breakdownItems.push({
+                name: '空转增压',
+                condition: '本回合未抽冷却',
+                value: bonusScore,
+                description: `X倍率 +${bonus}`
+            });
+            appliedModifiers.push('idle_supercharge');
+        }
+    }
+
+    const baseScore = calculateRoundScore(state);
+    let previewFinalScore = baseScore;
+    let riskStopBonusRate = 0;
+
+    if (!state.overloaded) {
+        const dangerBonus = calculateDangerStopBonus(state);
+        if (dangerBonus) {
+            riskStopBonusRate = dangerBonus.multiplier;
+            const bonusScore = Math.floor(baseScore * dangerBonus.multiplier);
+            previewFinalScore += bonusScore;
+            breakdownItems.push({
+                name: dangerBonus.label.split(':')[0],
+                condition: `热量 ${state.heat}/${state.maxHeat}`,
+                value: bonusScore,
+                description: `+${Math.floor(dangerBonus.multiplier * 100)}%`
+            });
+            appliedModifiers.push(`risk_stop_bonus_${Math.floor(dangerBonus.multiplier * 100)}%`);
+        }
+    }
+
+    return {
+        baseScore,
+        previewFinalScore,
+        breakdownItems,
+        appliedModifiers,
+        riskStopBonusRate,
+        effectiveMult,
+        effectiveXmult
+    };
 }
