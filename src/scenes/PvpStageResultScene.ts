@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import { COLORS } from '../constants';
 import { GamePhase, GameState, PvpGoldRewardBreakdown, PvpStagePlayerResult, PvpStageResult } from '../types';
+import { pvpClient } from '../pvpClient';
 
 export class PvpStageResultScene extends Phaser.Scene {
     private state!: GameState;
     private result!: PvpStageResult;
+    private disconnectCleanup?: () => void;
 
     constructor() {
         super({ key: 'PvpStageResultScene' });
@@ -17,6 +19,14 @@ export class PvpStageResultScene extends Phaser.Scene {
 
     create(): void {
         this.cameras.main.setBackgroundColor(COLORS.BACKGROUND);
+        this.disconnectCleanup = pvpClient.on('match:opponentLeft', () => {
+            alert('联机对方已退出，对局结束。');
+            this.scene.start('MenuScene');
+        });
+        this.events.once('shutdown', () => {
+            this.disconnectCleanup?.();
+            this.disconnectCleanup = undefined;
+        });
         const reward = this.applyGoldReward();
 
         const container = document.getElementById('game-ui')!;
@@ -87,8 +97,8 @@ export class PvpStageResultScene extends Phaser.Scene {
         if (this.result.gameOver) {
             return this.result.matchWinnerId === this.state.pvpMatch?.playerId ? '对战胜利' : '对战失败';
         }
-        if (this.result.winnerPlayerIds.length > 1) return '本关平局';
-        return this.result.winnerPlayerIds.includes(this.state.pvpMatch!.playerId) ? '本关胜利' : '本关失利';
+        if (this.result.winnerPlayerIds.length > 1) return '本轮平局';
+        return this.result.winnerPlayerIds.includes(this.state.pvpMatch!.playerId) ? '本轮胜利' : '本轮失利';
     }
 
     private renderPlayerResult(player: PvpStagePlayerResult): string {

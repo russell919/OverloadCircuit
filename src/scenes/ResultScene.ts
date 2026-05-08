@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { COLORS } from '../constants';
 import { GameState } from '../types';
 import { createInitialState } from '../store';
+import { submitPveLeaderboard } from '../playerProfile';
 
 export class ResultScene extends Phaser.Scene {
     private state!: GameState;
@@ -16,6 +17,9 @@ export class ResultScene extends Phaser.Scene {
 
     create(): void {
         this.cameras.main.setBackgroundColor(COLORS.BACKGROUND);
+        if (this.state.gameMode === 'pve') {
+            submitPveLeaderboard(this.state.maxRoundScore, this.state.maxStageScore).catch(() => {});
+        }
 
         const container = document.getElementById('game-ui')!;
         container.style.display = 'flex';
@@ -35,6 +39,10 @@ export class ResultScene extends Phaser.Scene {
                     <div class="result-stat">
                         <div>最高单回合分</div>
                         <div class="result-stat-value">${this.state.maxRoundScore.toLocaleString()}</div>
+                    </div>
+                    <div class="result-stat">
+                        <div>历史最高总分</div>
+                        <div class="result-stat-value">${this.state.maxStageScore.toLocaleString()}</div>
                     </div>
                     <div class="result-stat">
                         <div>本局总分</div>
@@ -57,7 +65,7 @@ export class ResultScene extends Phaser.Scene {
             container.style.display = 'grid';
             container.style.gridTemplateColumns = '220px 1fr 220px';
             const state = createInitialState();
-            this.scene.start('CoreChipScene', { state });
+            this.scene.start('GameScene', { state });
         });
 
         const menuBtn = document.getElementById('btn-menu')!;

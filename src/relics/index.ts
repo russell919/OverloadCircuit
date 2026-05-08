@@ -22,10 +22,10 @@ export const RELIC_RARITY_PRICES: Record<Rarity, number> = {
 };
 
 const RELIC_REWARD_RARITY_WEIGHTS: Array<{ rarity: Rarity; weight: number }> = [
-    { rarity: 'common', weight: 42 },
-    { rarity: 'rare', weight: 31 },
+    { rarity: 'common', weight: 45 },
+    { rarity: 'rare', weight: 30 },
     { rarity: 'epic', weight: 20 },
-    { rarity: 'legendary', weight: 7 }
+    { rarity: 'legendary', weight: 5 }
 ];
 
 const RELIC_RARITY_ORDER: Record<Rarity, number> = {
@@ -51,7 +51,7 @@ export const SuperconductorCoil: Relic = {
 export const HeatFin: Relic = {
     id: 'heat_fin',
     name: '散热鳍片',
-    description: '每回合第一次抽到冷却时，额外获得 +25 筹码',
+    description: '抽到冷却时，额外获得 +10 筹码',
     stackable: true,
     rarity: 'common',
     price: getRelicPrice('common')
@@ -60,7 +60,7 @@ export const HeatFin: Relic = {
 export const OutOfControlCircuit: Relic = {
     id: 'out_of_control_circuit',
     name: '失控回路',
-    description: '当热量 >= 80% 总热量时，本回合获得筹码增加一倍',
+    description: '当热量 >= 80% 总热量时，本回合获得筹码增加 50%',
     stackable: true,
     rarity: 'epic',
     price: getRelicPrice('epic')
@@ -70,6 +70,15 @@ export const Stabilizer: Relic = {
     id: 'stabilizer',
     name: '稳压器',
     description: '每个稳压器能使一个黄芯的额外热量失效',
+    stackable: true,
+    rarity: 'epic',
+    price: getRelicPrice('epic')
+};
+
+export const MirrorFurnace: Relic = {
+    id: 'mirror_furnace',
+    name: '镜面熔炉',
+    description: '复制模块复制红芯或蓝芯时，复制效果翻倍',
     stackable: true,
     rarity: 'epic',
     price: getRelicPrice('epic')
@@ -123,7 +132,7 @@ export const Fuse: Relic = {
 export const ReinforcedFuse: Relic = {
     id: 'reinforced_fuse',
     name: '强化保险丝',
-    description: '保险丝分数保留效果 +3%',
+    description: '保险丝分数保留效果 +6%，至多获取 5 个',
     stackable: true,
     rarity: 'rare',
     price: getRelicPrice('rare')
@@ -132,7 +141,7 @@ export const ReinforcedFuse: Relic = {
 export const IdleSupercharge: Relic = {
     id: 'idle_supercharge',
     name: '空转增压',
-    description: '如果本回合没有抽到冷却，停手时额外获得 +1 X倍率',
+    description: '如果连续 6 次没有抽到冷却，获得 +1 X倍率',
     stackable: true,
     rarity: 'common',
     price: getRelicPrice('common')
@@ -141,7 +150,7 @@ export const IdleSupercharge: Relic = {
 export const BufferCore: Relic = {
     id: 'buffer_core',
     name: '缓冲核心',
-    description: '每回合热量上限 +2',
+    description: '每回合热量上限 +2，至多获取 5 个',
     stackable: true,
     rarity: 'legendary',
     price: getRelicPrice('legendary')
@@ -159,7 +168,7 @@ export const MeltdownProtocol: Relic = {
 export const CopperConductor: Relic = {
     id: 'copper_conductor',
     name: '铜制导片',
-    description: '每回合前 2 次抽取额外 +10 筹码',
+    description: '每获得 1 热量，获得 1 筹码',
     stackable: true,
     rarity: 'common',
     price: getRelicPrice('common')
@@ -174,6 +183,15 @@ export const CoolantCache: Relic = {
     price: getRelicPrice('epic')
 };
 
+export const CoolingInertiaWheel: Relic = {
+    id: 'cooling_inertia_wheel',
+    name: '冷却惯性轮',
+    description: '冷却模块额外 -1 热量',
+    stackable: false,
+    rarity: 'legendary',
+    price: getRelicPrice('legendary')
+};
+
 export const ShortCircuitReward: Relic = {
     id: 'short_circuit_reward',
     name: '短路奖励',
@@ -186,7 +204,7 @@ export const ShortCircuitReward: Relic = {
 export const InsulationTape: Relic = {
     id: 'insulation_tape',
     name: '绝缘胶带',
-    description: '每回合第一次热量增加时，少增加 1 点热量',
+    description: '回合开始时，抽取前 2 个模块不增加抽取热量',
     stackable: true,
     rarity: 'common',
     price: getRelicPrice('common')
@@ -195,10 +213,19 @@ export const InsulationTape: Relic = {
 export const OldCapacitor: Relic = {
     id: 'old_capacitor',
     name: '废旧电容',
-    description: '每回合第一次获得倍率时，额外 +1 倍率',
+    description: '回合开始时，+2 倍率',
     stackable: true,
     rarity: 'common',
     price: getRelicPrice('common')
+};
+
+export const CondensingBattery: Relic = {
+    id: 'condensing_battery',
+    name: '冷凝电池',
+    description: '每次冷却降低热量时，获得 降低热量 × 20 筹码',
+    stackable: true,
+    rarity: 'rare',
+    price: getRelicPrice('rare')
 };
 
 export const OvercurrentMeter: Relic = {
@@ -246,13 +273,67 @@ export const CriticalCharge: Relic = {
     price: getRelicPrice('rare')
 };
 
-export const OldFan: Relic = {
-    id: 'old_fan',
-    name: '旧式风扇',
-    description: '每 5 次抽取，热量 -1',
+export const RedCoreLens: Relic = {
+    id: 'red_core_lens',
+    name: '红芯透镜',
+    description: '连续抽到 2 个红芯时，额外 +1 X倍率',
+    stackable: true,
+    rarity: 'epic',
+    price: getRelicPrice('epic')
+};
+
+export const BlueArray: Relic = {
+    id: 'blue_array',
+    name: '蓝芯阵列',
+    description: '每获得 150 筹码，额外 +1 倍率',
+    stackable: true,
+    rarity: 'epic',
+    price: getRelicPrice('epic')
+};
+
+export const StablePower: Relic = {
+    id: 'stable_power',
+    name: '稳定电源',
+    description: '回合开始时 +20 筹码，如果上回合过载则改为 +50 筹码',
     stackable: true,
     rarity: 'common',
     price: getRelicPrice('common')
+};
+
+export const HighPressureBlueBridge: Relic = {
+    id: 'high_pressure_blue_bridge',
+    name: '恶魔协议',
+    description: '当热量 < 50% 时，获得的蓝芯无效；当热量 >= 50% 时，获得的蓝芯效果 +200%',
+    stackable: false,
+    rarity: 'epic',
+    price: getRelicPrice('epic')
+};
+
+export const OldFan: Relic = {
+    id: 'old_fan',
+    name: '旧式风扇',
+    description: '每 5 次抽取，热量 -1；限获取 1 个，获取后解锁稀有品质风扇',
+    stackable: false,
+    rarity: 'common',
+    price: getRelicPrice('common')
+};
+
+export const TurboFan: Relic = {
+    id: 'turbo_fan',
+    name: '涡轮风扇',
+    description: '每 5 次抽取，热量 -1；限获取 1 个，获取后解锁传说品质风扇',
+    stackable: false,
+    rarity: 'rare',
+    price: getRelicPrice('rare')
+};
+
+export const QuantumFan: Relic = {
+    id: 'quantum_fan',
+    name: '量子风扇',
+    description: '每 5 次抽取，热量 -1',
+    stackable: false,
+    rarity: 'legendary',
+    price: getRelicPrice('legendary')
 };
 
 export const ThinCopperWire: Relic = {
@@ -267,7 +348,7 @@ export const ThinCopperWire: Relic = {
 export const LowVoltageResistor: Relic = {
     id: 'low_voltage_resistor',
     name: '低压电阻',
-    description: '热量低于 4 时，红芯额外 +1 倍率',
+    description: '热量低于 5 时，获得的红芯额外 +1 倍率',
     stackable: true,
     rarity: 'common',
     price: getRelicPrice('common')
@@ -276,8 +357,26 @@ export const LowVoltageResistor: Relic = {
 export const OverclockCore: Relic = {
     id: 'overclock_core',
     name: '超频核心',
-    description: '热量 >= 90% 时不会获得危险停手奖励，但所有倍率收益翻倍',
+    description: '热量 >= 90% 总热量时，本回合获得筹码增加 100%',
     stackable: true,
+    rarity: 'legendary',
+    price: getRelicPrice('legendary')
+};
+
+export const OverloadEcho: Relic = {
+    id: 'overload_echo',
+    name: '过载残响',
+    description: '过载后下一回合初始 X倍率 +1',
+    stackable: true,
+    rarity: 'legendary',
+    price: getRelicPrice('legendary')
+};
+
+export const DangerStopProtocol: Relic = {
+    id: 'danger_stop_protocol',
+    name: '危险停手协议',
+    description: '主动停手时，根据热量比例获得危险停手奖励：70% +15%，80% +30%，90% +60%',
+    stackable: false,
     rarity: 'legendary',
     price: getRelicPrice('legendary')
 };
@@ -305,6 +404,7 @@ export const ALL_RELICS: Relic[] = [
     HeatFin,
     OutOfControlCircuit,
     Stabilizer,
+    MirrorFurnace,
     MirrorDrive,
     RedAddict,
     BlueAddict,
@@ -316,18 +416,28 @@ export const ALL_RELICS: Relic[] = [
     MeltdownProtocol,
     CopperConductor,
     CoolantCache,
+    CoolingInertiaWheel,
     ShortCircuitReward,
     InsulationTape,
     OldCapacitor,
+    CondensingBattery,
     OvercurrentMeter,
     CheapThermalPaste,
     SpareWire,
     CoolantRebound,
     CriticalCharge,
+    RedCoreLens,
+    BlueArray,
+    StablePower,
+    HighPressureBlueBridge,
     OldFan,
+    TurboFan,
+    QuantumFan,
     ThinCopperWire,
     LowVoltageResistor,
     OverclockCore,
+    OverloadEcho,
+    DangerStopProtocol,
     ZeroPointCooling,
     QuantumBypass
 ];
@@ -351,7 +461,7 @@ export function getAllRelics(): Relic[] {
 
 export function getRelicDescription(relic: Relic, maxHeat = 10): string {
     if (relic.id === 'out_of_control_circuit') {
-        return `当热量 >= 80% 总热量(${Math.floor(maxHeat * 0.8)})时，本回合获得筹码增加一倍`;
+        return `当热量 >= 80% 总热量(${Math.floor(maxHeat * 0.8)})时，本回合获得筹码增加 50%`;
     }
     if (relic.id === 'extreme_paranoia') {
         return `当热量 = 90% 总热量(${Math.floor(maxHeat * 0.9)})时，本回合额外获得 +2 X倍率`;
@@ -372,7 +482,7 @@ export function getFuseRetainRate(relics: Relic[]): number {
         return 0;
     }
     const reinforcedCount = relics.filter(relic => relic.id === 'reinforced_fuse').length;
-    return 0.35 + reinforcedCount * 0.03;
+    return 0.35 + reinforcedCount * 0.06;
 }
 
 export function isUniqueRelic(relic: Relic): boolean {
@@ -395,9 +505,14 @@ export function getRelicsForRules(ownedRelics: Relic[]): Relic[] {
 
 function getAvailableRelics(ownedRelics: Relic[] = []): Relic[] {
     const hasFuse = ownedRelics.some(relic => relic.id === 'fuse');
+    const countOwned = (relicId: string) => ownedRelics.filter(relic => relic.id === relicId).length;
     return ALL_RELICS.filter(relic => {
         if (relic.id === 'fuse') return !hasFuse;
-        if (relic.id === 'reinforced_fuse') return hasFuse;
+        if (relic.id === 'reinforced_fuse') return hasFuse && countOwned('reinforced_fuse') < 5;
+        if (relic.id === 'buffer_core') return countOwned('buffer_core') < 5;
+        if (relic.id === 'old_fan') return countOwned('old_fan') < 1;
+        if (relic.id === 'turbo_fan') return countOwned('old_fan') > 0 && countOwned('turbo_fan') < 1;
+        if (relic.id === 'quantum_fan') return countOwned('turbo_fan') > 0 && countOwned('quantum_fan') < 1;
         return relic.stackable || !ownedRelics.some(owned => owned.id === relic.id);
     });
 }

@@ -23,6 +23,7 @@ export function createInitialState(): GameState {
         maxHeat: HEAT_MAX,
         roundScore: 0,
         maxRoundScore: 0,
+        maxStageScore: 0,
         modulesThisRound: [],
         lastModule: null,
         relics: [],
@@ -37,6 +38,9 @@ export function createInitialState(): GameState {
         fuseRetainedScore: 0,
         meltdownProtocolUsed: false,
         quantumBypassUsed: false,
+        overloadEchoPending: 0,
+        lastRoundOverloaded: false,
+        blueArrayProgress: 0,
         zeroPointCoolingUsed: false,
         heatReductionUsed: false,
         capacitorUsed: false,
@@ -94,6 +98,25 @@ export function resetRoundState(state: GameState): void {
                 break;
         }
     }
+
+    const oldCapacitorCount = state.relics.filter(r => r.id === 'old_capacitor').length;
+    if (oldCapacitorCount > 0) {
+        state.mult += oldCapacitorCount * 2;
+    }
+
+    const stablePowerCount = state.relics.filter(r => r.id === 'stable_power').length;
+    if (stablePowerCount > 0) {
+        const bonus = stablePowerCount * (state.lastRoundOverloaded ? 50 : 20);
+        state.chips += bonus;
+        applyBlueArrayProgress(state, bonus);
+        state.log.push(`[稳定电源] 触发: +${bonus} 筹码`);
+    }
+
+    if (state.overloadEchoPending > 0) {
+        state.xmult += state.overloadEchoPending;
+        state.log.push(`[过载残响] 触发: 本回合初始 X倍率 +${state.overloadEchoPending}`);
+        state.overloadEchoPending = 0;
+    }
 }
 
 export function resetStageState(state: GameState): void {
@@ -107,6 +130,21 @@ export function resetStageState(state: GameState): void {
 
 export function calculateRoundScore(state: GameState): number {
     return Math.floor(state.chips * state.mult * state.xmult);
+}
+
+export function applyBlueArrayProgress(state: GameState, chipsGained: number): number {
+    const blueArrayCount = state.relics.filter(r => r.id === 'blue_array').length;
+    if (blueArrayCount <= 0 || chipsGained <= 0) return 0;
+
+    state.blueArrayProgress += chipsGained;
+    const triggers = Math.floor(state.blueArrayProgress / 150);
+    if (triggers <= 0) return 0;
+
+    state.blueArrayProgress %= 150;
+    const gain = triggers * blueArrayCount;
+    state.mult += gain;
+    state.log.push(`[蓝芯阵列] 触发: 获得 ${chipsGained} 筹码，倍率 +${gain}`);
+    return gain;
 }
 
 export function calculateDangerStopBonus(state: GameState): { bonus: number, multiplier: number, label: string } | null {
@@ -189,7 +227,12 @@ export function saveHistory(state: GameState): void {
 }
 
 export function addRelic(state: GameState, relic: Relic): void {
-    if (relic.stackable || !state.relics.find(r => r.id === relic.id)) {
+    const maxCountByRelic: Record<string, number> = {
+        buffer_core: 5,
+        reinforced_fuse: 5
+    };
+    const maxCount = maxCountByRelic[relic.id] ?? (relic.stackable ? Number.POSITIVE_INFINITY : 1);
+    if (countRelic(state, relic.id) < maxCount) {
         state.relics.push(relic);
         if (relic.id === 'buffer_core') {
             state.maxHeat = calculateMaxHeat(state);
@@ -231,25 +274,8 @@ export function calculateSettlementPreview(state: GameState): SettlementPreview 
         appliedModifiers.push('extreme_paranoia');
     }
 
-    if (hasRelic(state, 'idle_supercharge')) {
-        const hasCoolant = state.modulesThisRound.some(m => m.id === 'coolant');
-        if (!hasCoolant) {
-            const bonus = countRelic(state, 'idle_supercharge');
-            effectiveXmult += bonus;
-            const bonusScore = Math.floor(state.chips * state.mult * bonus);
-            breakdownItems.push({
-                name: '空转增压',
-                condition: '本回合未抽冷却',
-                value: bonusScore,
-                description: `X倍率 +${bonus}`
-            });
-            appliedModifiers.push('idle_supercharge');
-        }
-    }
-
     if (hasRelic(state, 'critical_charge') && state.heat === state.maxHeat - 1) {
-        const overclockMultiplier = hasRelic(state, 'overclock_core') && state.heat / state.maxHeat >= 0.9 ? 2 : 1;
-        const bonusMult = countRelic(state, 'critical_charge') * 2 * overclockMultiplier;
+        const bonusMult = countRelic(state, 'critical_charge') * 2;
         effectiveMult += bonusMult;
         breakdownItems.push({
             name: '临界电荷',
@@ -278,16 +304,29 @@ export function calculateSettlementPreview(state: GameState): SettlementPreview 
     }
 
     if (hasRelic(state, 'out_of_control_circuit') && state.heat >= getOutOfControlThreshold(state.maxHeat)) {
-        const multiplier = countRelic(state, 'out_of_control_circuit');
+        const multiplier = countRelic(state, 'out_of_control_circuit') * 0.5;
         const bonusScore = Math.floor(state.chips * multiplier * effectiveMult * effectiveXmult);
         previewFinalScore += bonusScore;
         breakdownItems.push({
             name: '失控回路',
             condition: `热量 ${state.heat}/${state.maxHeat}`,
             value: bonusScore,
-            description: `筹码 ×${1 + multiplier}`
+            description: `筹码 +${Math.floor(multiplier * 100)}%`
         });
         appliedModifiers.push('out_of_control_circuit');
+    }
+
+    if (hasRelic(state, 'overclock_core') && state.heat >= Math.floor(state.maxHeat * 0.9)) {
+        const overclockCount = countRelic(state, 'overclock_core');
+        const bonusScore = Math.floor(state.chips * effectiveMult * effectiveXmult * overclockCount);
+        previewFinalScore += bonusScore;
+        breakdownItems.push({
+            name: '超频核心',
+            condition: `热量 ${state.heat}/${state.maxHeat}`,
+            value: bonusScore,
+            description: `筹码 +${overclockCount * 100}%`
+        });
+        appliedModifiers.push('overclock_core');
     }
 
     const fuseRetainRate = getFuseRetainRate(state.relics);
@@ -303,7 +342,7 @@ export function calculateSettlementPreview(state: GameState): SettlementPreview 
         appliedModifiers.push('fuse');
     }
 
-    if (!state.overloaded && !(hasRelic(state, 'overclock_core') && state.heat / state.maxHeat >= 0.9)) {
+    if (!state.overloaded && hasRelic(state, 'danger_stop_protocol')) {
         const dangerBonus = calculateDangerStopBonus(state);
         if (dangerBonus) {
             riskStopBonusRate = dangerBonus.multiplier;

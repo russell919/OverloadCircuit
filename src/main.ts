@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
-import { CoreChipScene } from './scenes/CoreChipScene';
 import { GameScene } from './scenes/GameScene';
 import { RelicScene } from './scenes/RelicScene';
 import { ResultScene } from './scenes/ResultScene';
@@ -9,6 +8,7 @@ import { PvpLobbyScene } from './scenes/PvpLobbyScene';
 import { PvpStarterShopScene } from './scenes/PvpStarterShopScene';
 import { PvpWaitingScene } from './scenes/PvpWaitingScene';
 import { PvpStageResultScene } from './scenes/PvpStageResultScene';
+import { LeaderboardScene } from './scenes/LeaderboardScene';
 
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
@@ -16,7 +16,7 @@ const config: Phaser.Types.Core.GameConfig = {
     height: 720,
     parent: 'game-container',
     backgroundColor: '#0a0a12',
-    scene: [BootScene, MenuScene, CoreChipScene, GameScene, RelicScene, ResultScene, PvpLobbyScene, PvpStarterShopScene, PvpWaitingScene, PvpStageResultScene],
+    scene: [BootScene, MenuScene, GameScene, RelicScene, ResultScene, PvpLobbyScene, PvpStarterShopScene, PvpWaitingScene, PvpStageResultScene, LeaderboardScene],
     scale: {
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,

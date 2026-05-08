@@ -3,6 +3,7 @@ import { COLORS } from '../constants';
 import { createPvpInitialState } from '../store';
 import { PvpMatchState, PvpPlayerInfo } from '../types';
 import { LobbyRoom, MatchStartPayload, pvpClient } from '../pvpClient';
+import { getPlayerLabel } from '../playerProfile';
 
 export class PvpLobbyScene extends Phaser.Scene {
     private rooms: LobbyRoom[] = [];
@@ -28,6 +29,8 @@ export class PvpLobbyScene extends Phaser.Scene {
     }
 
     private getDefaultName(): string {
+        const playerLabel = getPlayerLabel();
+        if (playerLabel !== '未登记') return playerLabel;
         const stored = localStorage.getItem('overload_circuit_pvp_name');
         if (stored) return stored;
         const generated = `玩家${Math.floor(1000 + Math.random() * 9000)}`;

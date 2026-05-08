@@ -117,6 +117,7 @@ export interface GameState {
     maxHeat: number;
     roundScore: number;
     maxRoundScore: number;
+    maxStageScore: number;
     modulesThisRound: Module[];
     lastModule: Module | null;
     relics: Relic[];
@@ -131,6 +132,9 @@ export interface GameState {
     fuseRetainedScore: number;
     meltdownProtocolUsed: boolean;
     quantumBypassUsed: boolean;
+    overloadEchoPending: number;
+    lastRoundOverloaded: boolean;
+    blueArrayProgress: number;
     zeroPointCoolingUsed: boolean;
     heatReductionUsed: boolean;
     capacitorUsed: boolean;

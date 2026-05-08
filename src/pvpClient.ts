@@ -21,6 +21,7 @@ type PvpEventMap = {
     'pvp:waiting': { stage: number; submitted: boolean };
     'pvp:stageResult': PvpStageResult;
     'pvp:error': { message: string };
+    'match:opponentLeft': { message: string };
 };
 
 type PvpEventName = keyof PvpEventMap;
@@ -109,6 +110,10 @@ class PvpClient {
             roundScores,
             totalScore
         });
+    }
+
+    leaveMatch(): void {
+        this.send('match:leave');
     }
 
     private emit<T extends PvpEventName>(event: T, payload: PvpEventMap[T]): void {

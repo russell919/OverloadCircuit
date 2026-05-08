@@ -3,12 +3,14 @@ import { COLORS, getStageTarget } from '../constants';
 import { GameState, Relic, ShopItem } from '../types';
 import { addRelic, resetRoundState } from '../store';
 import { getRandomRelics, getRelicDescription, getShopRelics, RELIC_RARITY_COLORS, RELIC_RARITY_TEXT } from '../relics';
+import { pvpClient } from '../pvpClient';
 
 export class RelicScene extends Phaser.Scene {
     private state!: GameState;
     private relics: Relic[] = [];
     private shopItems: ShopItem[] = [];
     private showShop: boolean = false;
+    private disconnectCleanup?: () => void;
 
     constructor() {
         super({ key: 'RelicScene' });
@@ -27,6 +29,16 @@ export class RelicScene extends Phaser.Scene {
 
     create(): void {
         this.cameras.main.setBackgroundColor(COLORS.BACKGROUND);
+        if (this.state.gameMode === 'pvp') {
+            this.disconnectCleanup = pvpClient.on('match:opponentLeft', () => {
+                alert('联机对方已退出，对局结束。');
+                this.scene.start('MenuScene');
+            });
+            this.events.once('shutdown', () => {
+                this.disconnectCleanup?.();
+                this.disconnectCleanup = undefined;
+            });
+        }
 
         const container = document.getElementById('game-ui')!;
         container.style.display = 'flex';
@@ -59,6 +71,7 @@ export class RelicScene extends Phaser.Scene {
             
             const skipBtn = document.getElementById('btn-skip') as HTMLButtonElement;
             skipBtn.addEventListener('click', () => {
+                this.state.gold += 4;
                 const randomRelic = this.relics[Math.floor(Math.random() * this.relics.length)];
                 this.selectRelic(randomRelic);
             });
@@ -87,6 +100,7 @@ export class RelicScene extends Phaser.Scene {
 
             const skipBtn = document.getElementById('btn-skip') as HTMLButtonElement;
             skipBtn.addEventListener('click', () => {
+                this.state.gold += 4;
                 const randomRelic = this.relics[Math.floor(Math.random() * this.relics.length)];
                 this.selectRelic(randomRelic);
             });
@@ -105,7 +119,7 @@ export class RelicScene extends Phaser.Scene {
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 0.9rem; color: #aaaacc;">
                         <div>
-                            <div>本关：第 ${this.state.stage} 关</div>
+                            <div>本轮：第 ${this.state.stage} 轮</div>
                             <div>你的总分：${this.state.stageScore.toLocaleString()}</div>
                             <div>胜点比分：${match ? (result?.matchScore[match.playerId] || 0) : 0} : ${match ? (result?.matchScore[match.opponentId] || 0) : 0}</div>
                         </div>
@@ -373,7 +387,7 @@ export class RelicScene extends Phaser.Scene {
         this.state.log.push('');
         this.state.log.push(`=== 第 ${this.state.stage} 关开始 ===`);
         if (this.state.gameMode === 'pvp') {
-            this.state.log.push('本关无目标分，三回合后统一揭示成绩');
+            this.state.log.push('本轮无目标分，三回合后统一揭示成绩');
         } else {
             this.state.log.push(`目标: ${getStageTarget(this.state.stage).toLocaleString()} 分`);
         }

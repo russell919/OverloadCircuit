@@ -1,5 +1,7 @@
 import http from 'node:http';
 import os from 'node:os';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { createServer as createViteServer } from 'vite';
 import { WebSocketServer } from 'ws';
 
@@ -11,7 +13,109 @@ const vite = await createViteServer({
     appType: 'spa'
 });
 
-const httpServer = http.createServer((req, res) => {
+const DATA_DIR = path.resolve('data');
+const LEADERBOARD_FILE = path.join(DATA_DIR, 'leaderboard.json');
+
+async function readLeaderboardDb() {
+    try {
+        const raw = await fs.readFile(LEADERBOARD_FILE, 'utf-8');
+        return JSON.parse(raw);
+    } catch {
+        return { players: {} };
+    }
+}
+
+async function writeLeaderboardDb(db) {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(LEADERBOARD_FILE, JSON.stringify(db, null, 2), 'utf-8');
+}
+
+function formatLeaderboard(db) {
+    const players = Object.values(db.players || {});
+    const toEntry = (player, scoreKey, timeKey) => ({
+        displayName: player.displayName,
+        playerCode: player.playerCode,
+        score: player[scoreKey],
+        completedAt: player[timeKey]
+    });
+    return {
+        highestRoundScore: [...players].filter(p => p.highestRoundScore > 0).sort((a, b) => b.highestRoundScore - a.highestRoundScore).slice(0, 10).map(p => toEntry(p, 'highestRoundScore', 'highestRoundScoreAt')),
+        highestStageScore: [...players].filter(p => p.highestStageScore > 0).sort((a, b) => b.highestStageScore - a.highestStageScore).slice(0, 10).map(p => toEntry(p, 'highestStageScore', 'highestStageScoreAt'))
+    };
+}
+
+function readJsonBody(req) {
+    return new Promise((resolve, reject) => {
+        let raw = '';
+        req.on('data', chunk => {
+            raw += chunk;
+            if (raw.length > 65536) {
+                reject(new Error('request body too large'));
+                req.destroy();
+            }
+        });
+        req.on('end', () => {
+            try {
+                resolve(raw ? JSON.parse(raw) : {});
+            } catch (error) {
+                reject(error);
+            }
+        });
+    });
+}
+
+async function handleApi(req, res) {
+    if (req.method === 'GET' && req.url === '/api/leaderboard') {
+        const db = await readLeaderboardDb();
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify(formatLeaderboard(db)));
+        return true;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/leaderboard') {
+        const body = await readJsonBody(req);
+        const displayName = String(body.displayName || '').slice(0, 8);
+        const playerCode = String(body.playerCode || '');
+        const highestRoundScore = Math.max(0, Number(body.highestRoundScore) || 0);
+        const highestStageScore = Math.max(0, Number(body.highestStageScore) || 0);
+        if (!displayName || !/^\d{4}$/.test(playerCode)) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'invalid player profile' }));
+            return true;
+        }
+
+        const key = `${displayName}#${playerCode}`;
+        const now = new Date().toISOString();
+        const db = await readLeaderboardDb();
+        const current = db.players[key] || { displayName, playerCode, highestRoundScore: 0, highestRoundScoreAt: null, highestStageScore: 0, highestStageScoreAt: null };
+        current.displayName = displayName;
+        current.playerCode = playerCode;
+        if (highestRoundScore > current.highestRoundScore) {
+            current.highestRoundScore = highestRoundScore;
+            current.highestRoundScoreAt = now;
+        }
+        if (highestStageScore > current.highestStageScore) {
+            current.highestStageScore = highestStageScore;
+            current.highestStageScoreAt = now;
+        }
+        db.players[key] = current;
+        await writeLeaderboardDb(db);
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ ok: true }));
+        return true;
+    }
+
+    return false;
+}
+
+const httpServer = http.createServer(async (req, res) => {
+    try {
+        if (await handleApi(req, res)) return;
+    } catch {
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: 'api error' }));
+        return;
+    }
     vite.middlewares(req, res, () => {
         res.statusCode = 404;
         res.end('Not found');
@@ -123,6 +227,29 @@ function startMatch(hostId, guestId) {
     }
 
     broadcastLobby();
+}
+
+function closeMatchForClient(client, notifyOpponent = true) {
+    if (!client.matchId) return;
+
+    const match = matches.get(client.matchId);
+    if (match) {
+        for (const player of match.players) {
+            if (player.playerId === client.id) continue;
+            const opponent = clients.get(player.playerId);
+            if (opponent) {
+                if (notifyOpponent) {
+                    send(opponent.ws, 'match:opponentLeft', { message: '对手已退出联机。' });
+                }
+                opponent.matchId = null;
+                opponent.status = 'connected';
+            }
+        }
+        matches.delete(client.matchId);
+    }
+
+    client.matchId = null;
+    client.status = 'connected';
 }
 
 function submitStage(client, payload) {
@@ -237,10 +364,17 @@ wss.on('connection', ws => {
 
         if (type === 'pvp:submitStage') {
             submitStage(client, payload);
+            return;
+        }
+
+        if (type === 'match:leave') {
+            closeMatchForClient(client, true);
+            broadcastLobby();
         }
     });
 
     ws.on('close', () => {
+        closeMatchForClient(client, true);
         removeClientOpenRoom(client.id);
         clients.delete(client.id);
         broadcastLobby();

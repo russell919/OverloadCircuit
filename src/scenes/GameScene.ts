@@ -1,14 +1,18 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, COLORS, getStageTarget, TOTAL_ROUNDS } from '../constants';
+import { COLORS, getStageTarget, TOTAL_ROUNDS } from '../constants';
 import { GameState, Module, ModuleResult, GamePhase } from '../types';
-import { createInitialState, resetRoundState, calculateRoundScore, saveHistory, hasRelic, countRelic, resetStageState, calculateGoldReward, calculateOverachievementGold, calculateSettlementPreview } from '../store';
+import { createInitialState, resetRoundState, calculateRoundScore, saveHistory, hasRelic, countRelic, resetStageState, calculateGoldReward, calculateOverachievementGold, calculateSettlementPreview, applyBlueArrayProgress, calculateDangerStopBonus } from '../store';
 import { getWeightedRandomModule, ModuleInfo, getAllModules } from '../modules';
-import { getExtremeParanoiaThreshold, getFuseRetainRate, getRelicDescription, getRelicsForRules, isUniqueRelic, RELIC_RARITY_COLORS, RELIC_RARITY_TEXT } from '../relics';
+import { getFuseRetainRate, getRelicDescription, getRelicsForRules, isUniqueRelic, RELIC_RARITY_COLORS, RELIC_RARITY_TEXT } from '../relics';
+import { pvpClient } from '../pvpClient';
+import { getPlayerLabel } from '../playerProfile';
 
 export class GameScene extends Phaser.Scene {
     private state!: GameState;
     private uiContainer!: HTMLElement;
     private buttonsDisabled = false;
+    private keyboardHandler?: (event: KeyboardEvent) => void;
+    private pvpDisconnectCleanup?: () => void;
 
     constructor() {
         super({ key: 'GameScene' });
@@ -35,7 +39,7 @@ export class GameScene extends Phaser.Scene {
             this.state.log.push(`=== 第 ${this.state.stage} 关开始 ===`);
             if (this.isPvp()) {
                 this.state.log.push(`联机对手: ${this.state.pvpMatch?.opponentName || '未知'}`);
-                this.state.log.push('本关无目标分，三回合后统一揭示成绩');
+                this.state.log.push('本轮无目标分，三回合后统一揭示成绩');
             } else {
                 this.state.log.push(`目标: ${getStageTarget(this.state.stage).toLocaleString()} 分`);
             }
@@ -47,6 +51,7 @@ export class GameScene extends Phaser.Scene {
         this.uiContainer.innerHTML = this.createGameUI();
 
         this.bindGameEvents();
+        this.bindPvpDisconnect();
         this.updateAllUI();
         this.populateRulesModal();
 
@@ -69,6 +74,7 @@ export class GameScene extends Phaser.Scene {
         return `
             <div class="left-panel">
                 <div class="game-title">过载回路</div>
+                <div class="core-chip-display" style="color: #aaaacc; font-size: 12px; margin-top: 5px;">玩家: ${getPlayerLabel()}</div>
                 ${coreChipDisplay}
 
                 <div class="info-block">
@@ -87,7 +93,7 @@ export class GameScene extends Phaser.Scene {
                 </div>
 
                 <div class="info-block">
-                    <div class="info-label">${this.isPvp() ? '本机本关分' : '本关累计分'}</div>
+                    <div class="info-label">${this.isPvp() ? '本机本轮分' : '本关累计分'}</div>
                     <div class="info-value score" id="stage-score-value">${this.state.stageScore.toLocaleString()}</div>
                 </div>
 
@@ -238,6 +244,7 @@ export class GameScene extends Phaser.Scene {
         settleBtn.addEventListener('click', () => this.onSettle());
         restartBtn.addEventListener('click', () => {
             if (this.isPvp()) {
+                pvpClient.leaveMatch();
                 this.scene.start('MenuScene');
             } else {
                 this.scene.start('ResultScene', { state: this.state });
@@ -246,6 +253,45 @@ export class GameScene extends Phaser.Scene {
         rulesBtn.addEventListener('click', () => {
             if (typeof (window as any).openRulesModal === 'function') {
                 (window as any).openRulesModal();
+            }
+        });
+
+        this.bindKeyboardEvents();
+    }
+
+    private bindPvpDisconnect(): void {
+        if (!this.isPvp()) return;
+
+        this.pvpDisconnectCleanup = pvpClient.on('match:opponentLeft', () => {
+            alert('联机对方已退出，对局结束。');
+            this.scene.start('MenuScene');
+        });
+        this.events.once('shutdown', () => {
+            this.pvpDisconnectCleanup?.();
+            this.pvpDisconnectCleanup = undefined;
+        });
+    }
+
+    private bindKeyboardEvents(): void {
+        this.keyboardHandler = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement | null;
+            const tagName = target?.tagName.toLowerCase();
+            if (tagName === 'input' || tagName === 'textarea' || target?.isContentEditable) return;
+
+            if (event.code === 'Space') {
+                event.preventDefault();
+                this.onDrawModule();
+            } else if (event.code === 'Enter') {
+                event.preventDefault();
+                this.onSettle();
+            }
+        };
+
+        window.addEventListener('keydown', this.keyboardHandler);
+        this.events.once('shutdown', () => {
+            if (this.keyboardHandler) {
+                window.removeEventListener('keydown', this.keyboardHandler);
+                this.keyboardHandler = undefined;
             }
         });
     }
@@ -291,15 +337,18 @@ export class GameScene extends Phaser.Scene {
 
         const breakdownPanel = document.getElementById('breakdown-panel');
         if (breakdownPanel) {
-            if (preview.breakdownItems.length > 1) {
+            const modifierItems = preview.breakdownItems.slice(1);
+            if (modifierItems.length > 0) {
                 let breakdownHtml = '<div class="breakdown-title">分数增幅原因</div>';
-                preview.breakdownItems.forEach((item, index) => {
+                modifierItems.forEach((item) => {
                     const isPositive = item.value >= 0;
-                    const valueText = isPositive && index > 0 ? `+${item.value.toLocaleString()}` : item.value.toLocaleString();
+                    const valueText = item.value === 0 && item.description
+                        ? '生效'
+                        : isPositive ? `+${item.value.toLocaleString()}` : item.value.toLocaleString();
                     breakdownHtml += `
                         <div class="breakdown-item">
                             <div class="breakdown-name">${item.name}</div>
-                            <div class="breakdown-desc">${item.condition}</div>
+                            <div class="breakdown-desc">${item.description || item.condition}</div>
                             <div class="breakdown-value ${isPositive ? 'positive' : 'negative'}">${valueText}</div>
                         </div>
                     `;
@@ -438,6 +487,12 @@ export class GameScene extends Phaser.Scene {
                 effects.push({ rarityRank: rarityRank[relic.rarity], text });
             }
         };
+        const addAnyRelicEffect = (relicIds: string[], text: string): void => {
+            const relic = this.state.relics.find(r => relicIds.includes(r.id));
+            if (relic) {
+                effects.push({ rarityRank: rarityRank[relic.rarity], text });
+            }
+        };
 
         if (this.state.amplifierActive && this.state.amplifierCount > 0) {
             effects.push({ rarityRank: -1, text: `🔺 放大待命 (剩余${this.state.amplifierCount}次)` });
@@ -460,17 +515,125 @@ export class GameScene extends Phaser.Scene {
             addRelicEffect('stabilizer', `稳压器: 可抵消 ${this.state.stabilizerRemaining} 次黄芯热量`);
         }
 
-        if (hasRelic(this.state, 'heat_fin') && !this.state.modulesThisRound.some(m => m.id === 'coolant')) {
-            addRelicEffect('heat_fin', '散热鳍片: 首个冷却 +25 筹码');
+        if (hasRelic(this.state, 'heat_fin')) {
+            addRelicEffect('heat_fin', `散热鳍片: 抽到冷却 +${countRelic(this.state, 'heat_fin') * 10} 筹码`);
         }
 
-        if (hasRelic(this.state, 'copper_conductor') && this.state.modulesThisRound.length < 2) {
-            addRelicEffect('copper_conductor', `铜制导片: 第 ${nextDrawCount} 次抽取 +${countRelic(this.state, 'copper_conductor') * 10} 筹码`);
+        if (hasRelic(this.state, 'copper_conductor')) {
+            addRelicEffect('copper_conductor', `铜制导片: 每获得 1 热量 +${countRelic(this.state, 'copper_conductor')} 筹码`);
+        }
+
+        const freeDraws = countRelic(this.state, 'insulation_tape') * 2;
+        if (freeDraws > 0 && this.state.modulesThisRound.length < freeDraws) {
+            addRelicEffect('insulation_tape', `绝缘胶带: 剩余 ${freeDraws - this.state.modulesThisRound.length} 次抽取不增加抽取热量`);
         }
 
         if (hasRelic(this.state, 'short_circuit_reward')) {
             if (this.state.heat === 6) {
                 addRelicEffect('short_circuit_reward', `短路奖励: 下次抽取 +${countRelic(this.state, 'short_circuit_reward') * 80} 筹码`);
+            }
+        }
+
+        const fanCount = this.countFanRelics();
+        if (fanCount > 0) {
+            const remaining = 5 - ((nextDrawCount - 1) % 5);
+            addAnyRelicEffect(['quantum_fan', 'turbo_fan', 'old_fan'], remaining === 1 ? `风扇: 下次抽取热量 -${fanCount}` : `风扇: 还差 ${remaining} 次抽取降温`);
+        }
+
+        const spareWireCount = countRelic(this.state, 'spare_wire');
+        if (spareWireCount > 0) {
+            const remaining = 4 - ((nextDrawCount - 1) % 4);
+            addRelicEffect('spare_wire', remaining === 1 ? `备用导线: 下次抽取 +${spareWireCount * 15} 筹码` : `备用导线: 还差 ${remaining} 次抽取`);
+        }
+
+        const idleSuperchargeCount = countRelic(this.state, 'idle_supercharge');
+        if (idleSuperchargeCount > 0) {
+            const dryStreak = this.getNoCoolantStreak();
+            const remaining = 6 - (dryStreak % 6);
+            addRelicEffect('idle_supercharge', remaining === 1 ? `空转增压: 若下次不是冷却，X倍率 +${idleSuperchargeCount}` : `空转增压: 还差 ${remaining} 次非冷却`);
+        }
+
+        const lastDrawn = this.state.modulesThisRound[this.state.modulesThisRound.length - 1];
+        const redLensCount = countRelic(this.state, 'red_core_lens');
+        if (redLensCount > 0 && lastDrawn?.id === 'red_core') {
+            addRelicEffect('red_core_lens', `红芯透镜: 下个红芯触发 X倍率 +${redLensCount}`);
+        }
+
+        const copyTarget = this.state.lastModule && this.state.lastModule.id !== 'copy' ? this.state.lastModule : null;
+        const mirrorDriveCount = countRelic(this.state, 'mirror_drive');
+        if (mirrorDriveCount > 0) {
+            addRelicEffect('mirror_drive', copyTarget
+                ? `镜像驱动: 下个复制额外 +${mirrorDriveCount * 20} 筹码`
+                : `镜像驱动: 下个复制仍会 +${mirrorDriveCount * 20} 筹码`);
+        }
+        if (hasRelic(this.state, 'mirror_furnace') && copyTarget && (copyTarget.id === 'red_core' || copyTarget.id === 'blue_core')) {
+            addRelicEffect('mirror_furnace', `镜面熔炉: 下个复制会双倍复制${copyTarget.name}`);
+        }
+
+        const lowVoltageCount = countRelic(this.state, 'low_voltage_resistor');
+        if (lowVoltageCount > 0 && this.state.heat < 5) {
+            addRelicEffect('low_voltage_resistor', `低压电阻: 下个红芯额外 +${lowVoltageCount} 倍率`);
+        }
+
+        if (hasRelic(this.state, 'high_pressure_blue_bridge')) {
+            const threshold = Math.ceil(this.state.maxHeat * 0.5);
+            addRelicEffect('high_pressure_blue_bridge', this.state.heat < threshold
+                ? `恶魔协议: 当前蓝芯无效 (需热量 >= ${threshold})`
+                : '恶魔协议: 当前蓝芯效果 +200%');
+        }
+
+        const coolantEffects: string[] = [];
+        const heatFinCount = countRelic(this.state, 'heat_fin');
+        if (heatFinCount > 0) coolantEffects.push(`散热鳍片 +${heatFinCount * 10} 筹码`);
+        if (hasRelic(this.state, 'cooling_inertia_wheel')) coolantEffects.push('冷却惯性轮额外 -1 热量');
+        const condensingBatteryCount = countRelic(this.state, 'condensing_battery');
+        if (condensingBatteryCount > 0) coolantEffects.push(`冷凝电池每降 1 热量 +${condensingBatteryCount * 20} 筹码`);
+        const coolantCacheCount = countRelic(this.state, 'coolant_cache');
+        if (coolantCacheCount > 0) {
+            const coolantCount = this.state.modulesThisRound.filter(m => m.id === 'coolant').length;
+            coolantEffects.push((coolantCount + 1) % 2 === 0 ? `冷却缓存: 下个冷却 X倍率 +${coolantCacheCount}` : '冷却缓存: 还差 2 个冷却');
+        }
+        if (coolantEffects.length > 0) {
+            addAnyRelicEffect(['cooling_inertia_wheel', 'condensing_battery', 'heat_fin', 'coolant_cache'], `冷却模块待触发: ${coolantEffects.join('；')}`);
+        }
+
+        const blueArrayCount = countRelic(this.state, 'blue_array');
+        if (blueArrayCount > 0) {
+            addRelicEffect('blue_array', `蓝芯阵列: 距离下次 +${blueArrayCount} 倍率还差 ${150 - this.state.blueArrayProgress} 筹码`);
+        }
+
+        if (hasRelic(this.state, 'critical_charge')) {
+            addRelicEffect('critical_charge', this.state.heat === this.state.maxHeat - 1
+                ? `临界电荷: 停手时倍率 +${countRelic(this.state, 'critical_charge') * 2}`
+                : `临界电荷: 热量到 ${this.state.maxHeat - 1} 时停手触发`);
+        }
+
+        const overcurrentCount = countRelic(this.state, 'overcurrent_meter');
+        if (overcurrentCount > 0) {
+            const nextThreshold = [3, 6, 9].find(threshold => this.state.heat < threshold && !this.state.overcurrentThresholdsTriggered.includes(threshold));
+            if (nextThreshold) {
+                addRelicEffect('overcurrent_meter', `过流计: 热量达到 ${nextThreshold} 时倍率 +${overcurrentCount}`);
+            }
+        }
+
+        const zeroPointCount = countRelic(this.state, 'zero_point_cooling');
+        if (zeroPointCount > 0 && !this.state.zeroPointCoolingUsed) {
+            addRelicEffect('zero_point_cooling', `零点冷却: 首次冷却到 0 热量时 X倍率 +${zeroPointCount * 3}`);
+        }
+
+        const coolantReboundCount = countRelic(this.state, 'coolant_rebound');
+        if (coolantReboundCount > 0) {
+            addRelicEffect('coolant_rebound', `冷却反冲: 冷却到 0 热量时 +${coolantReboundCount * 80} 筹码`);
+        }
+
+        if (hasRelic(this.state, 'cheap_thermal_paste') && this.state.heat <= 3) {
+            addRelicEffect('cheap_thermal_paste', `廉价散热膏: 停手时筹码 +${countRelic(this.state, 'cheap_thermal_paste') * 40}`);
+        }
+
+        if (hasRelic(this.state, 'danger_stop_protocol')) {
+            const dangerBonus = calculateDangerStopBonus(this.state);
+            if (dangerBonus) {
+                addRelicEffect('danger_stop_protocol', `危险停手协议: 停手分数 ${dangerBonus.label.split(': ')[1]}`);
             }
         }
 
@@ -481,13 +644,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     private getDrawHeatIncrease(): number {
-        return countRelic(this.state, 'insulation_tape') > 0 && !this.state.heatReductionUsed ? 0 : 1;
+        const freeDraws = countRelic(this.state, 'insulation_tape') * 2;
+        return this.state.modulesThisRound.length < freeDraws ? 0 : 1;
     }
 
     private getMultGain(baseGain: number): number {
-        return hasRelic(this.state, 'overclock_core') && this.state.heat / this.state.maxHeat >= 0.9
-            ? baseGain * 2
-            : baseGain;
+        return baseGain;
     }
 
     private onDrawModule(): void {
@@ -504,7 +666,11 @@ export class GameScene extends Phaser.Scene {
             this.state.log.push('[绝缘胶带] 触发: 本次热量增加 -1');
         }
         this.state.heat += drawHeatIncrease;
-        const heatAfterDrawCost = this.state.heat;
+        if (drawHeatIncrease > 0) {
+            this.applyHeatGainChipBonus(drawHeatIncrease, '抽取升温');
+        } else if (countRelic(this.state, 'insulation_tape') > 0) {
+            this.state.log.push('[绝缘胶带] 触发: 本次抽取不增加抽取热量');
+        }
 
         const module = getWeightedRandomModule();
         const result = this.applyModule(module, heatBeforeDraw);
@@ -525,8 +691,15 @@ export class GameScene extends Phaser.Scene {
         const prevModule = this.state.lastModule;
         const wasAmplified = this.state.amplifierActive && this.state.amplifierCount > 0;
         const heatBeforeModule = this.state.heat;
-        const multBeforeEffects = this.state.mult;
         const result = module.apply(this.state, prevModule, this.state.amplifierCount);
+        if (result.chips > 0) {
+            result.mult += applyBlueArrayProgress(this.state, result.chips);
+        }
+        const heatGainedByModule = Math.max(0, this.state.heat - heatBeforeModule);
+        if (heatGainedByModule > 0) {
+            const bonus = this.applyHeatGainChipBonus(heatGainedByModule, `${module.name}升温`);
+            result.chips += bonus;
+        }
 
         if (wasAmplified) {
             if (module.id === 'copy' || module.id === 'amplifier') {
@@ -538,11 +711,20 @@ export class GameScene extends Phaser.Scene {
                 if (this.state.amplifierCount === 0) {
                     this.state.amplifierActive = false;
                 }
+                const heatBeforeExtra = this.state.heat;
                 const extraResult = module.apply(this.state, prevModule, 1);
+                if (extraResult.chips > 0) {
+                    extraResult.mult += applyBlueArrayProgress(this.state, extraResult.chips);
+                }
                 result.chips += extraResult.chips;
                 result.mult += extraResult.mult;
                 result.xmult += extraResult.xmult;
                 result.heat += extraResult.heat;
+                const heatGainedByExtra = Math.max(0, this.state.heat - heatBeforeExtra);
+                if (heatGainedByExtra > 0) {
+                    const bonus = this.applyHeatGainChipBonus(heatGainedByExtra, `${module.name}放大升温`);
+                    result.chips += bonus;
+                }
                 this.state.log.push(`[放大] ${module.name} 再次触发!`);
             }
         }
@@ -550,13 +732,6 @@ export class GameScene extends Phaser.Scene {
         if (this.state.amplifierCount <= 0) {
             this.state.amplifierCount = 0;
             this.state.amplifierActive = false;
-        }
-
-        if (result.heat > 0 && countRelic(this.state, 'insulation_tape') > 0 && !this.state.heatReductionUsed) {
-            this.state.heat = Math.max(0, this.state.heat - 1);
-            result.heat -= 1;
-            this.state.heatReductionUsed = true;
-            this.state.log.push('[绝缘胶带] 触发: 本次热量增加 -1');
         }
 
         if (result.heat < 0 && heatBeforeModule > 0 && this.state.heat === 0) {
@@ -593,14 +768,6 @@ export class GameScene extends Phaser.Scene {
         this.state.lastModule = module;
 
         const drawCount = this.state.modulesThisRound.length;
-        const copperCount = countRelic(this.state, 'copper_conductor');
-        if (copperCount > 0 && drawCount <= 2) {
-            const bonus = copperCount * 10;
-            this.state.chips += bonus;
-            result.chips += bonus;
-            this.state.log.push(`[铜制导片] 触发: +${bonus} 筹码 (第${drawCount}抽)`);
-        }
-
         for (const relic of this.state.relics) {
             if (relic.id === 'superconductor_coil') {
                 if (drawCount % 3 === 0) {
@@ -630,6 +797,17 @@ export class GameScene extends Phaser.Scene {
             }
         }
 
+        if (module.id === 'red_core') {
+            const redLensCount = countRelic(this.state, 'red_core_lens');
+            const moduleCount = this.state.modulesThisRound.length;
+            const prevDrawnModule = moduleCount >= 2 ? this.state.modulesThisRound[moduleCount - 2] : null;
+            if (redLensCount > 0 && prevDrawnModule?.id === 'red_core') {
+                this.state.xmult += redLensCount;
+                result.xmult += redLensCount;
+                this.state.log.push(`[红芯透镜] 触发: 连续 2 个红芯，X倍率 +${redLensCount}`);
+            }
+        }
+
         const shortCircuitCount = countRelic(this.state, 'short_circuit_reward');
         if (shortCircuitCount > 0 && heatBeforeDraw === 6) {
             const bonus = shortCircuitCount * 80;
@@ -646,20 +824,21 @@ export class GameScene extends Phaser.Scene {
             this.state.log.push(`[备用导线] 触发: +${bonus} 筹码 (第${drawCount}抽)`);
         }
 
-        const oldFanCount = countRelic(this.state, 'old_fan');
+        const idleSuperchargeCount = countRelic(this.state, 'idle_supercharge');
+        if (idleSuperchargeCount > 0 && module.id !== 'coolant') {
+            const dryStreak = this.getNoCoolantStreak();
+            if (dryStreak > 0 && dryStreak % 6 === 0) {
+                this.state.xmult += idleSuperchargeCount;
+                result.xmult += idleSuperchargeCount;
+                this.state.log.push(`[空转增压] 触发: 连续 ${dryStreak} 次未抽到冷却，X倍率 +${idleSuperchargeCount}`);
+            }
+        }
+
+        const oldFanCount = this.countFanRelics();
         if (oldFanCount > 0 && drawCount % 5 === 0) {
             this.state.heat = Math.max(0, this.state.heat - oldFanCount);
             result.heat -= oldFanCount;
-            this.state.log.push(`[旧式风扇] 触发: -${oldFanCount} 热量 (第${drawCount}抽)`);
-        }
-
-        const capacitorCount = countRelic(this.state, 'old_capacitor');
-        if (capacitorCount > 0 && !this.state.capacitorUsed && this.state.mult > multBeforeEffects) {
-            const gain = this.getMultGain(capacitorCount);
-            this.state.mult += gain;
-            result.mult += gain;
-            this.state.capacitorUsed = true;
-            this.state.log.push(`[废旧电容] 触发: +${gain} 倍率`);
+            this.state.log.push(`[风扇] 触发: -${oldFanCount} 热量 (第${drawCount}抽)`);
         }
 
         const thinCopperWireCount = countRelic(this.state, 'thin_copper_wire');
@@ -672,6 +851,33 @@ export class GameScene extends Phaser.Scene {
 
         this.state.log.push(result.log);
         return result;
+    }
+
+    private applyHeatGainChipBonus(heatGain: number, source: string): number {
+        const copperCount = countRelic(this.state, 'copper_conductor');
+        if (copperCount <= 0 || heatGain <= 0) return 0;
+
+        const bonus = copperCount * heatGain;
+        this.state.chips += bonus;
+        const multGain = applyBlueArrayProgress(this.state, bonus);
+        this.state.log.push(`[铜制导片] 触发: ${source} +${heatGain} 热量，+${bonus} 筹码`);
+        if (multGain > 0) {
+            this.state.log.push(`[蓝芯阵列] 追加触发: 倍率 +${multGain}`);
+        }
+        return bonus;
+    }
+
+    private getNoCoolantStreak(): number {
+        let streak = 0;
+        for (let i = this.state.modulesThisRound.length - 1; i >= 0; i--) {
+            if (this.state.modulesThisRound[i].id === 'coolant') break;
+            streak++;
+        }
+        return streak;
+    }
+
+    private countFanRelics(): number {
+        return countRelic(this.state, 'old_fan') + countRelic(this.state, 'turbo_fan') + countRelic(this.state, 'quantum_fan');
     }
 
     private showModuleFeedback(result: ModuleResult): void {
@@ -753,6 +959,12 @@ export class GameScene extends Phaser.Scene {
         if (retainedScore > 0) {
             this.state.log.push(`[保险丝] 保留 ${retainedScore.toLocaleString()} 分 (${Math.floor(fuseRetainRate * 100)}%)`);
         }
+        if (hasRelic(this.state, 'overload_echo')) {
+            const echoCount = countRelic(this.state, 'overload_echo');
+            this.state.overloadEchoPending += echoCount;
+            this.state.log.push(`[过载残响] 已充能: 下一回合初始 X倍率 +${echoCount}`);
+        }
+        this.state.lastRoundOverloaded = true;
         this.state.log.push('═══════════════════');
 
         this.showOverloadEffect();
@@ -790,22 +1002,12 @@ export class GameScene extends Phaser.Scene {
         const preview = calculateSettlementPreview(this.state);
         const finalRoundScore = preview.previewFinalScore;
 
-        if (hasRelic(this.state, 'extreme_paranoia') && this.state.heat === getExtremeParanoiaThreshold(this.state.maxHeat)) {
-            const bonusXmult = 2 * countRelic(this.state, 'extreme_paranoia');
-            this.state.xmult += bonusXmult;
-            this.state.log.push(`[极限偏执] 触发: X倍率 +${bonusXmult} (热量=${this.state.heat})`);
-        }
-
-        if (hasRelic(this.state, 'idle_supercharge')) {
-            const hasCoolant = this.state.modulesThisRound.some(m => m.id === 'coolant');
-            if (!hasCoolant) {
-                const bonus = countRelic(this.state, 'idle_supercharge');
-                this.state.xmult += bonus;
-                this.state.log.push(`[空转增压] 触发: X倍率 +${bonus}`);
-            }
-        }
+        preview.breakdownItems.slice(1).forEach(item => {
+            this.state.log.push(`[${item.name}] 触发: ${item.description || item.condition}`);
+        });
 
         this.state.roundScore = finalRoundScore;
+        this.state.lastRoundOverloaded = false;
         if (finalRoundScore > this.state.maxRoundScore) {
             this.state.maxRoundScore = finalRoundScore;
         }
@@ -813,7 +1015,7 @@ export class GameScene extends Phaser.Scene {
         this.state.totalScore += finalRoundScore;
 
         this.state.log.push('═══════════════════');
-        this.state.log.push(`结算: ${this.state.chips} × ${this.state.mult} × ${this.state.xmult} = ${preview.baseScore.toLocaleString()}`);
+        this.state.log.push(`结算: ${this.state.chips} × ${preview.effectiveMult} × ${preview.effectiveXmult} = ${preview.baseScore.toLocaleString()}`);
         preview.breakdownItems.forEach((item, index) => {
             if (index > 0) {
                 this.state.log.push(`${item.name}: ${item.value.toLocaleString()}`);
@@ -851,6 +1053,9 @@ export class GameScene extends Phaser.Scene {
         const target = getStageTarget(this.state.stage);
 
         if (this.state.stageScore >= target) {
+            if (this.state.stageScore > this.state.maxStageScore) {
+                this.state.maxStageScore = this.state.stageScore;
+            }
             this.triggerStageClear();
             return;
         }
@@ -858,6 +1063,9 @@ export class GameScene extends Phaser.Scene {
         this.state.round++;
 
         if (this.state.round > TOTAL_ROUNDS) {
+            if (this.state.stageScore > this.state.maxStageScore) {
+                this.state.maxStageScore = this.state.stageScore;
+            }
             this.triggerGameOver();
         } else {
             resetRoundState(this.state);
@@ -877,7 +1085,7 @@ export class GameScene extends Phaser.Scene {
 
         if (this.state.round > TOTAL_ROUNDS) {
             this.state.log.push('');
-            this.state.log.push('三回合结束，成绩已封存');
+            this.state.log.push('三回合结束，本轮成绩已封存');
             this.scene.start('PvpWaitingScene', { state: this.state });
             return;
         }

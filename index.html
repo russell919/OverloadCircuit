@@ -51,11 +51,13 @@
             width: 100%;
             height: 100%;
             max-width: 2000px;
+            min-height: 0;
             pointer-events: auto;
             display: grid;
             grid-template-columns: 220px 1fr 220px;
             background: rgba(10, 10, 18, 0.95);
             z-index: 10;
+            overflow: hidden;
         }
 
         :root {
@@ -70,6 +72,7 @@
 
         .left-panel {
             height: 100%;
+            min-height: 0;
             background: rgba(18, 18, 31, 0.9);
             border-right: 1px solid rgba(42, 42, 78, 0.8);
             padding: 15px 12px;
@@ -193,10 +196,26 @@
 
         .center-panel {
             height: 100%;
+            min-height: 0;
             display: flex;
             flex-direction: column;
             padding: 30px 20px;
             gap: 15px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .center-panel::-webkit-scrollbar,
+        .left-panel::-webkit-scrollbar,
+        .right-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .center-panel::-webkit-scrollbar-thumb,
+        .left-panel::-webkit-scrollbar-thumb,
+        .right-panel::-webkit-scrollbar-thumb {
+            background: rgba(102, 102, 170, 0.5);
+            border-radius: 999px;
         }
 
         .center-title {
@@ -270,11 +289,14 @@
         }
 
         .preview-final-value {
+            display: block;
+            max-width: 100%;
             font-size: 56px;
             font-weight: bold;
             color: #44ff88;
             text-shadow: 0 0 30px rgba(68, 255, 136, 0.6);
             transition: transform 0.3s ease, text-shadow 0.3s ease;
+            overflow-wrap: anywhere;
         }
 
         .preview-final-value.animating {
@@ -469,6 +491,10 @@
             gap: 15px;
             padding: 15px 0;
             margin-top: auto;
+            position: sticky;
+            bottom: 0;
+            z-index: 5;
+            background: linear-gradient(180deg, rgba(10, 10, 18, 0), rgba(10, 10, 18, 0.96) 24%);
         }
 
         .btn {
@@ -523,6 +549,7 @@
 
         .right-panel {
             height: 100%;
+            min-height: 0;
             background: rgba(18, 18, 31, 0.9);
             border-left: 1px solid rgba(42, 42, 78, 0.8);
             padding: 15px 12px;
@@ -672,6 +699,45 @@
             flex-direction: column;
             gap: 12px;
             margin-top: 15px;
+        }
+
+        .menu-player {
+            color: #aaaacc;
+            font-size: var(--text-sm);
+        }
+
+        .profile-form {
+            width: min(360px, 92vw);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            background: rgba(18, 18, 31, 0.95);
+            border: 1px solid #2a2a4e;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .profile-form label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            color: #aaaacc;
+            font-size: var(--text-sm);
+        }
+
+        .profile-form input {
+            padding: 12px;
+            border: 1px solid #444477;
+            border-radius: 8px;
+            background: #12121f;
+            color: #ffffff;
+            font-size: var(--text-base);
+        }
+
+        .profile-hint {
+            color: #8888aa;
+            font-size: var(--text-xs);
+            line-height: 1.5;
         }
 
         .relic-select-container {
@@ -926,6 +992,63 @@
             padding-bottom: 12px;
         }
 
+        .pvp-rarity-tabs {
+            width: min(1180px, 96vw);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .pvp-rarity-tab {
+            min-width: 82px;
+            min-height: 38px;
+            padding: 8px 14px;
+            border: 1px solid;
+            border-radius: 8px;
+            background: rgba(18, 18, 31, 0.95);
+            font-size: var(--text-sm);
+            font-weight: bold;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        .pvp-rarity-tab:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .pvp-rarity-tab.active:hover {
+            background: inherit;
+        }
+
+        .pvp-rarity-section {
+            width: min(1180px, 96vw);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .pvp-rarity-divider {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 14px;
+            align-items: center;
+            border-top: 2px solid;
+            padding-top: 12px;
+            margin-top: 6px;
+        }
+
+        .pvp-rarity-divider span {
+            font-size: var(--text-lg);
+            font-weight: bold;
+        }
+
+        .pvp-rarity-divider small {
+            color: #8888aa;
+            line-height: 1.5;
+        }
+
         .pvp-starter-card {
             width: auto;
             min-height: 235px;
@@ -1028,6 +1151,366 @@
         .pvp-reward-panel div,
         .pvp-reward-panel strong {
             color: #ffd700;
+        }
+
+        .leaderboard-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 18px;
+            background: linear-gradient(135deg, #0a0a12, #12121f);
+            color: #ffffff;
+            padding: 24px;
+            overflow: auto;
+        }
+
+        .leaderboard-title {
+            font-size: 34px;
+            font-weight: bold;
+            color: #ffdd44;
+        }
+
+        .leaderboard-subtitle {
+            color: #aaaacc;
+            font-size: var(--text-sm);
+        }
+
+        .leaderboard-grid {
+            width: min(980px, 96vw);
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .leaderboard-board {
+            background: rgba(18, 18, 31, 0.95);
+            border: 1px solid #2a2a4e;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .leaderboard-board h2 {
+            color: #44ff88;
+            font-size: var(--text-lg);
+            margin-bottom: 12px;
+        }
+
+        .leaderboard-head,
+        .leaderboard-row {
+            display: grid;
+            grid-template-columns: 32px 1fr 92px 126px;
+            gap: 8px;
+            align-items: center;
+            min-height: 34px;
+            font-size: var(--text-xs);
+        }
+
+        .leaderboard-head {
+            color: #8888aa;
+            border-bottom: 1px solid #2a2a4e;
+        }
+
+        .leaderboard-row {
+            color: #aaaacc;
+            border-bottom: 1px solid rgba(42, 42, 78, 0.35);
+        }
+
+        .leaderboard-row strong {
+            color: #ffffff;
+        }
+
+        .leaderboard-empty {
+            color: #8888aa;
+            padding: 20px 0;
+            text-align: center;
+        }
+
+        @media (max-height: 720px) and (min-width: 761px) {
+            .left-panel,
+            .right-panel {
+                padding: 10px 10px;
+                gap: 7px;
+            }
+
+            .center-panel {
+                padding: 14px 16px 8px;
+                gap: 8px;
+            }
+
+            .stats-section {
+                padding: 4px 0;
+                gap: 10px;
+            }
+
+            .stat-value {
+                font-size: 24px;
+            }
+
+            .preview-final-section {
+                padding: 8px 0;
+            }
+
+            .preview-final-value {
+                font-size: 40px;
+            }
+
+            .modules-section {
+                min-height: 70px;
+                padding: 4px 0;
+                margin-top: 0;
+            }
+
+            .module-card {
+                width: 96px;
+                height: 56px;
+            }
+
+            .breakdown-panel {
+                max-height: 128px;
+            }
+
+            .buttons-section {
+                padding: 10px 0 6px;
+            }
+        }
+
+        @media (max-width: 760px) {
+            html, body {
+                overflow: hidden;
+            }
+
+            #game-ui {
+                grid-template-columns: 1fr !important;
+                grid-auto-rows: auto;
+                overflow-y: auto;
+                overflow-x: hidden;
+                align-content: start;
+            }
+
+            .left-panel,
+            .center-panel,
+            .right-panel {
+                width: 100%;
+                height: auto;
+                min-height: auto;
+                border-left: none;
+                border-right: none;
+                overflow: visible;
+            }
+
+            .left-panel {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+                padding: 12px;
+                border-bottom: 1px solid rgba(42, 42, 78, 0.8);
+            }
+
+            .game-title,
+            .core-chip-display,
+            .heat-section,
+            .relic-section,
+            #btn-rules {
+                grid-column: 1 / -1;
+            }
+
+            .relic-section {
+                margin-top: 0;
+            }
+
+            .center-panel {
+                padding: 14px 12px 8px;
+                gap: 10px;
+            }
+
+            .center-title {
+                display: none;
+            }
+
+            .stats-section {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 8px;
+                padding: 4px 0;
+            }
+
+            .stat-divider {
+                display: none;
+            }
+
+            .stat-value {
+                font-size: 22px;
+                overflow-wrap: anywhere;
+            }
+
+            .preview-final-section {
+                padding: 8px 0;
+            }
+
+            .preview-final-value {
+                font-size: 38px;
+                overflow-wrap: anywhere;
+            }
+
+            .modules-section {
+                min-height: 64px;
+                gap: 8px;
+                padding: 4px 0;
+                margin-top: 0;
+            }
+
+            .module-card {
+                width: calc(33.333vw - 16px);
+                max-width: 112px;
+                min-width: 86px;
+                height: 58px;
+            }
+
+            .module-card.latest {
+                transform: none;
+            }
+
+            .breakdown-panel {
+                width: 100%;
+                max-width: none;
+                max-height: 150px;
+                padding: 8px 10px;
+            }
+
+            .breakdown-item {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                gap: 4px 8px;
+            }
+
+            .breakdown-desc {
+                grid-column: 1 / -1;
+                margin: 0;
+            }
+
+            .buttons-section {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                padding: 10px 0 8px;
+            }
+
+            .buttons-section .btn {
+                width: 100%;
+                padding: 12px 8px;
+                font-size: var(--text-sm);
+            }
+
+            #btn-restart {
+                grid-column: 1 / -1;
+            }
+
+            .right-panel {
+                padding: 12px;
+                border-top: 1px solid rgba(42, 42, 78, 0.8);
+            }
+
+            .log-section {
+                max-height: 180px;
+            }
+
+            .menu-container,
+            .relic-select-container,
+            .result-container,
+            .core-chip-container,
+            .pvp-lobby-container,
+            .pvp-wait-container,
+            .pvp-result-container,
+            .pvp-shop-container {
+                min-height: 100%;
+                height: auto;
+                padding: 18px 12px;
+                overflow-y: auto;
+            }
+
+            .menu-title {
+                font-size: 38px;
+            }
+
+            .relic-cards-container,
+            .core-chip-cards {
+                flex-direction: column;
+                align-items: stretch;
+                width: min(360px, 94vw);
+            }
+
+            .relic-select-card,
+            .core-chip-card {
+                width: 100%;
+            }
+
+            .pvp-shop-header {
+                width: 100%;
+                align-items: flex-start;
+            }
+
+            .pvp-shop-header .pvp-shop-subtitle {
+                text-align: left;
+            }
+
+            .pvp-rarity-tabs,
+            .pvp-rarity-section,
+            .pvp-starter-grid {
+                width: 100%;
+            }
+
+            .pvp-rarity-tab {
+                flex: 1 1 30%;
+                min-width: 92px;
+            }
+
+            .pvp-rarity-divider {
+                grid-template-columns: 1fr;
+                gap: 4px;
+            }
+
+            .pvp-starter-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pvp-shop-footer {
+                position: sticky;
+                bottom: 0;
+                width: 100%;
+                padding: 10px 0;
+                background: linear-gradient(180deg, rgba(10, 10, 18, 0), rgba(10, 10, 18, 0.96) 24%);
+            }
+
+            .pvp-shop-footer .btn {
+                width: 100%;
+            }
+
+            .pvp-scoreboard {
+                grid-template-columns: 1fr;
+                width: 100%;
+            }
+
+            .leaderboard-container {
+                justify-content: flex-start;
+            }
+
+            .leaderboard-grid {
+                grid-template-columns: 1fr;
+                width: 100%;
+            }
+
+            .leaderboard-head,
+            .leaderboard-row {
+                grid-template-columns: 24px 1fr 78px;
+            }
+
+            .leaderboard-head span:last-child,
+            .leaderboard-row time {
+                display: none;
+            }
         }
 
         .value-pop {
@@ -1372,8 +1855,8 @@
                     <p>每一关需要达到目标分数才能进入下一关。关卡会无限进行下去，目标分数会越来越高。</p>
 
                     <h3>开局流程</h3>
-                    <p>主菜单 → 选择核心芯片 → 开始游戏</p>
-                    <p>核心芯片将影响整局游戏的策略方向。</p>
+                    <p>主菜单 → 开始游戏</p>
+                    <p>PVE 已移除开局核心芯片选择，点击开始游戏后直接进入关卡。</p>
 
                     <h3>回合机制</h3>
                     <ul class="rules-list">
@@ -1421,7 +1904,7 @@
 
                 <div class="rules-panel" id="panel-corechips">
                     <h3>核心芯片系统</h3>
-                    <p>开局选择核心芯片，该选择将影响整局游戏。核心芯片不计入遗物数量。</p>
+                    <p>PVE 已移除开局核心芯片选择。该页保留历史核心芯片资料，后续可作为流派核心重做参考。</p>
                     
                     <h3>核心芯片列表</h3>
                     <div class="corechip-info-grid" id="corechip-info-container">
