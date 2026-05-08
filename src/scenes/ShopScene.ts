@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { GameState, ShopItem, Relic } from '../types';
-import { getShopRelics } from '../relics';
+import { GameState, ShopItem } from '../types';
+import { getRelicDescription, getShopRelics, RELIC_RARITY_COLORS, RELIC_RARITY_TEXT } from '../relics';
 import { addRelic, resetStageState } from '../store';
 
 export default class ShopScene extends Phaser.Scene {
@@ -15,7 +15,7 @@ export default class ShopScene extends Phaser.Scene {
 
     init(data: { state: GameState }): void {
         this.state = data.state;
-        const relics = getShopRelics(this.state.stage);
+        const relics = getShopRelics(this.state.stage, this.state.relics);
         this.shopItems = relics.map(relic => ({ relic, sold: false }));
     }
 
@@ -110,23 +110,13 @@ export default class ShopScene extends Phaser.Scene {
 
     private createShopItemCard(item: ShopItem, index: number): HTMLElement {
         const card = document.createElement('div');
-        const rarityColors: Record<string, string> = {
-            common: '#44ff88',
-            rare: '#4488ff',
-            epic: '#aa44ff'
-        };
-        const rarityText: Record<string, string> = {
-            common: '普通',
-            rare: '稀有',
-            epic: '史诗'
-        };
-
         const isPlaceholder = item.relic.id === 'placeholder';
+        const rarityColor = isPlaceholder ? '#444' : RELIC_RARITY_COLORS[item.relic.rarity];
 
         card.style.cssText = `
             width: 280px;
             background: ${isPlaceholder ? '#1a1a2e' : '#12121f'};
-            border: 2px solid ${isPlaceholder ? '#444' : rarityColors[item.relic.rarity]};
+            border: 2px solid ${rarityColor};
             border-radius: 12px;
             padding: 1.5rem;
             display: flex;
@@ -139,7 +129,7 @@ export default class ShopScene extends Phaser.Scene {
         const name = document.createElement('h3');
         name.textContent = item.relic.name;
         name.style.cssText = `
-            color: ${isPlaceholder ? '#666' : rarityColors[item.relic.rarity]};
+            color: ${isPlaceholder ? '#666' : rarityColor};
             font-size: 1.5rem;
             margin: 0;
             text-align: center;
@@ -149,9 +139,9 @@ export default class ShopScene extends Phaser.Scene {
         if (!isPlaceholder) {
             // 稀有度
             const rarity = document.createElement('div');
-            rarity.textContent = rarityText[item.relic.rarity];
+            rarity.textContent = RELIC_RARITY_TEXT[item.relic.rarity];
             rarity.style.cssText = `
-                color: ${rarityColors[item.relic.rarity]};
+                color: ${rarityColor};
                 font-size: 0.9rem;
                 text-align: center;
                 opacity: 0.8;
@@ -172,7 +162,7 @@ export default class ShopScene extends Phaser.Scene {
 
         // 描述
         const desc = document.createElement('p');
-        desc.textContent = item.relic.description;
+        desc.textContent = getRelicDescription(item.relic, this.state.maxHeat);
         desc.style.cssText = `
             color: ${isPlaceholder ? '#555' : '#aaaacc'};
             font-size: 1rem;

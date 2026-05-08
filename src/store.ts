@@ -1,5 +1,12 @@
 import { GameState, HistoryRecord, Relic, GamePhase, SettlementPreview } from './types';
 import { HEAT_MAX, TOTAL_ROUNDS, STORAGE_KEYS } from './constants';
+import { getExtremeParanoiaThreshold, getFuseRetainRate, getOutOfControlThreshold } from './relics';
+
+function calculateMaxHeat(state: GameState): number {
+    const coreBonus = state.coreChip?.id === 'buffer' ? 2 : 0;
+    const relicBonus = state.relics.filter(r => r.id === 'buffer_core').length * 2;
+    return HEAT_MAX + coreBonus + relicBonus;
+}
 
 export function createInitialState(): GameState {
     return {
@@ -27,6 +34,12 @@ export function createInitialState(): GameState {
         overloaded: false,
         fuseTriggered: false,
         fuseRetainedScore: 0,
+        meltdownProtocolUsed: false,
+        quantumBypassUsed: false,
+        zeroPointCoolingUsed: false,
+        heatReductionUsed: false,
+        capacitorUsed: false,
+        overcurrentThresholdsTriggered: [],
         processing: false,
         gold: 0
     };
@@ -44,16 +57,21 @@ export function resetRoundState(state: GameState): void {
     state.overloaded = false;
     state.fuseTriggered = false;
     state.fuseRetainedScore = 0;
+    state.meltdownProtocolUsed = false;
+    state.quantumBypassUsed = false;
+    state.zeroPointCoolingUsed = false;
+    state.heatReductionUsed = false;
+    state.capacitorUsed = false;
+    state.overcurrentThresholdsTriggered = [];
     state.processing = false;
 
     // 初始化稳压器剩余抵消次数
     state.stabilizerRemaining = state.relics.filter(r => r.id === 'stabilizer').length;
 
+    state.maxHeat = calculateMaxHeat(state);
+
     if (state.coreChip) {
         switch (state.coreChip.id) {
-            case 'buffer':
-                state.maxHeat = HEAT_MAX + 2;
-                break;
             case 'amplify':
                 state.mult = 2;
                 break;
@@ -72,10 +90,6 @@ export function resetStageState(state: GameState): void {
     state.stageScore = 0;
     state.round = 1;
     state.phase = GamePhase.PLAYING;
-
-    if (state.coreChip && state.coreChip.id === 'buffer') {
-        state.maxHeat = HEAT_MAX + 2;
-    }
 
     resetRoundState(state);
 }
@@ -166,6 +180,9 @@ export function saveHistory(state: GameState): void {
 export function addRelic(state: GameState, relic: Relic): void {
     if (relic.stackable || !state.relics.find(r => r.id === relic.id)) {
         state.relics.push(relic);
+        if (relic.id === 'buffer_core') {
+            state.maxHeat = calculateMaxHeat(state);
+        }
     }
 }
 
@@ -190,13 +207,13 @@ export function calculateSettlementPreview(state: GameState): SettlementPreview 
         value: calculateRoundScore(state)
     });
 
-    if (hasRelic(state, 'extreme_paranoia') && state.heat === 9) {
+    if (hasRelic(state, 'extreme_paranoia') && state.heat === getExtremeParanoiaThreshold(state.maxHeat)) {
         const bonusXmult = 2 * countRelic(state, 'extreme_paranoia');
         effectiveXmult += bonusXmult;
         const bonusScore = Math.floor(state.chips * state.mult * bonusXmult);
         breakdownItems.push({
             name: '极限偏执',
-            condition: `热量 = 9`,
+            condition: `热量 = ${getExtremeParanoiaThreshold(state.maxHeat)}`,
             value: bonusScore,
             description: `X倍率 +${bonusXmult}`
         });
@@ -219,14 +236,39 @@ export function calculateSettlementPreview(state: GameState): SettlementPreview 
         }
     }
 
-    const baseScore = Math.floor(state.chips * state.mult * effectiveXmult);
+    if (hasRelic(state, 'critical_charge') && state.heat === state.maxHeat - 1) {
+        const overclockMultiplier = hasRelic(state, 'overclock_core') && state.heat / state.maxHeat >= 0.9 ? 2 : 1;
+        const bonusMult = countRelic(state, 'critical_charge') * 2 * overclockMultiplier;
+        effectiveMult += bonusMult;
+        breakdownItems.push({
+            name: '临界电荷',
+            condition: `热量 = ${state.maxHeat - 1}`,
+            value: Math.floor(state.chips * bonusMult * effectiveXmult),
+            description: `倍率 +${bonusMult}`
+        });
+        appliedModifiers.push('critical_charge');
+    }
+
+    const baseScore = Math.floor(state.chips * effectiveMult * effectiveXmult);
     let previewFinalScore = baseScore;
     let riskStopBonusRate = 0;
 
-    if (hasRelic(state, 'out_of_control_circuit') && state.heat >= 7) {
+    if (hasRelic(state, 'cheap_thermal_paste') && state.heat <= 3) {
+        const bonus = countRelic(state, 'cheap_thermal_paste') * 40;
+        const bonusScore = Math.floor(bonus * effectiveMult * effectiveXmult);
+        previewFinalScore += bonusScore;
+        breakdownItems.push({
+            name: '廉价散热膏',
+            condition: `热量 ${state.heat} <= 3`,
+            value: bonusScore,
+            description: `筹码 +${bonus}`
+        });
+        appliedModifiers.push('cheap_thermal_paste');
+    }
+
+    if (hasRelic(state, 'out_of_control_circuit') && state.heat >= getOutOfControlThreshold(state.maxHeat)) {
         const multiplier = countRelic(state, 'out_of_control_circuit');
-        const bonusChips = state.chips * multiplier;
-        const bonusScore = Math.floor(bonusChips * state.mult * state.xmult);
+        const bonusScore = Math.floor(state.chips * multiplier * effectiveMult * effectiveXmult);
         previewFinalScore += bonusScore;
         breakdownItems.push({
             name: '失控回路',
@@ -237,7 +279,20 @@ export function calculateSettlementPreview(state: GameState): SettlementPreview 
         appliedModifiers.push('out_of_control_circuit');
     }
 
-    if (!state.overloaded) {
+    const fuseRetainRate = getFuseRetainRate(state.relics);
+    if (state.overloaded && fuseRetainRate > 0 && !state.fuseTriggered) {
+        const retainedScore = Math.floor(baseScore * fuseRetainRate);
+        previewFinalScore += retainedScore;
+        breakdownItems.push({
+            name: '保险丝',
+            condition: `过载保留 ${Math.floor(fuseRetainRate * 100)}%`,
+            value: retainedScore,
+            description: `保留分数`
+        });
+        appliedModifiers.push('fuse');
+    }
+
+    if (!state.overloaded && !(hasRelic(state, 'overclock_core') && state.heat / state.maxHeat >= 0.9)) {
         const dangerBonus = calculateDangerStopBonus(state);
         if (dangerBonus) {
             riskStopBonusRate = dangerBonus.multiplier;

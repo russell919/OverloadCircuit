@@ -42,14 +42,17 @@ export const RedCoreModule: ModuleInfo = {
     effectText: '+1 倍率',
     apply(state: GameState): ModuleResult {
         const redAddict = state.relics.filter(r => r.id === 'red_addict').length;
-        const bonus = redAddict;
-        state.mult += 1 + bonus;
+        const lowVoltageBonus = state.heat < 4 ? state.relics.filter(r => r.id === 'low_voltage_resistor').length : 0;
+        const overclockMultiplier = state.relics.some(r => r.id === 'overclock_core') && state.heat / state.maxHeat >= 0.9 ? 2 : 1;
+        const bonus = redAddict + lowVoltageBonus;
+        const gain = (1 + bonus) * overclockMultiplier;
+        state.mult += gain;
         return {
             chips: 0,
-            mult: 1 + bonus,
+            mult: gain,
             xmult: 0,
             heat: 0,
-            log: `抽到红芯 +${1 + bonus} 倍率${bonus > 0 ? ` (红色成瘾+${bonus})` : ''}`,
+            log: `抽到红芯 +${gain} 倍率${bonus > 0 ? ` (额外+${bonus})` : ''}${overclockMultiplier > 1 ? ' (超频核心x2)' : ''}`,
             isOverload: false
         };
     }
@@ -134,17 +137,20 @@ export const CopyModule: ModuleInfo = {
             };
         }
         const mirrorCount = state.relics.filter(r => r.id === 'mirror_drive').length;
-        const times = 1 + mirrorCount;
         const result = prevModule.apply(state, null, 1);
-        let logMsg = `复制触发：重复 ${prevModule.name} x${times}`;
+        const mirrorBonus = mirrorCount * 20;
+        if (mirrorBonus > 0) {
+            state.chips += mirrorBonus;
+        }
+        let logMsg = `复制触发：重复 ${prevModule.name}`;
         if (mirrorCount > 0) {
-            logMsg += ` (镜像驱动+${mirrorCount})`;
+            logMsg += ` (镜像驱动+${mirrorBonus}筹码)`;
         }
         return {
-            chips: result.chips * times,
-            mult: result.mult * times,
-            xmult: result.xmult * times,
-            heat: result.heat * times,
+            chips: result.chips + mirrorBonus,
+            mult: result.mult,
+            xmult: result.xmult,
+            heat: result.heat,
             log: logMsg,
             isOverload: false
         };
@@ -160,7 +166,7 @@ export const AmplifierModule: ModuleInfo = {
     effectText: '下一个模块 x2',
     apply(state: GameState): ModuleResult {
         state.amplifierActive = true;
-        state.amplifierCount = 2;
+        state.amplifierCount += 1;
         return {
             chips: 0,
             mult: 0,

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { COLORS } from '../constants';
 import { GameState, Relic, ShopItem } from '../types';
 import { addRelic, resetRoundState } from '../store';
-import { getRandomRelics, getShopRelics } from '../relics';
+import { getRandomRelics, getRelicDescription, getShopRelics, RELIC_RARITY_COLORS, RELIC_RARITY_TEXT } from '../relics';
 
 export class RelicScene extends Phaser.Scene {
     private state!: GameState;
@@ -16,11 +16,11 @@ export class RelicScene extends Phaser.Scene {
 
     init(data: { state: GameState }): void {
         this.state = data.state;
-        this.relics = getRandomRelics(3);
+        this.relics = getRandomRelics(3, this.state.relics);
         
         this.showShop = this.state.stage % 5 === 0;
         if (this.showShop) {
-            const shopRelics = getShopRelics(this.state.stage);
+            const shopRelics = getShopRelics(this.state.stage, this.state.relics);
             this.shopItems = shopRelics.map(relic => ({ relic, sold: false }));
         }
     }
@@ -41,12 +41,7 @@ export class RelicScene extends Phaser.Scene {
                     <div style="text-align: center;">
                         <div class="relic-select-title" style="margin-bottom: 30px;">🎁 选择遗物</div>
                         <div class="relic-cards-container" style="gap: 20px;">
-                            ${this.relics.map((relic, i) => `
-                                <div class="relic-select-card" data-index="${i}">
-                                    <div class="relic-card-name">${relic.name}</div>
-                                    <div class="relic-card-desc">${relic.description}</div>
-                                </div>
-                            `).join('')}
+                            ${this.relics.map((relic, i) => this.renderRewardRelicCard(relic, i)).join('')}
                         </div>
                         <div style="margin-top: 30px; text-align: center;">
                             <button class="btn secondary" id="btn-skip">跳过 (随机获得)</button>
@@ -74,12 +69,7 @@ export class RelicScene extends Phaser.Scene {
                     <div style="text-align: center;">
                         <div class="relic-select-title" style="margin-bottom: 30px;">🎁 选择遗物</div>
                         <div class="relic-cards-container" style="gap: 20px;">
-                            ${this.relics.map((relic, i) => `
-                                <div class="relic-select-card" data-index="${i}">
-                                    <div class="relic-card-name">${relic.name}</div>
-                                    <div class="relic-card-desc">${relic.description}</div>
-                                </div>
-                            `).join('')}
+                            ${this.relics.map((relic, i) => this.renderRewardRelicCard(relic, i)).join('')}
                         </div>
                         <div style="margin-top: 30px; text-align: center;">
                             <button class="btn secondary" id="btn-skip">跳过 (随机获得)</button>
@@ -135,6 +125,19 @@ export class RelicScene extends Phaser.Scene {
         `;
     }
 
+    private renderRewardRelicCard(relic: Relic, index: number): string {
+        const rarityColor = RELIC_RARITY_COLORS[relic.rarity];
+        const rarityText = RELIC_RARITY_TEXT[relic.rarity];
+
+        return `
+            <div class="relic-select-card" data-index="${index}" style="border-color: ${rarityColor};">
+                <div class="relic-card-name" style="color: ${rarityColor};">${relic.name}</div>
+                <div style="font-size: 0.9rem; color: ${rarityColor}; margin-bottom: 8px; text-align: center;">${rarityText}</div>
+                <div class="relic-card-desc">${getRelicDescription(relic, this.state.maxHeat)}</div>
+            </div>
+        `;
+    }
+
     private selectRelic(relic: Relic): void {
         const card = document.querySelector(`[data-index="${this.relics.indexOf(relic)}"]`) as HTMLElement;
         
@@ -145,6 +148,8 @@ export class RelicScene extends Phaser.Scene {
         this.addSelectionAnimation(card, () => {
             addRelic(this.state, relic);
             if (this.showShop) {
+                const shopRelics = getShopRelics(this.state.stage, this.state.relics);
+                this.shopItems = shopRelics.map(shopRelic => ({ relic: shopRelic, sold: false }));
                 this.showShopInterface();
             } else {
                 setTimeout(() => {
@@ -218,26 +223,18 @@ export class RelicScene extends Phaser.Scene {
                 </div>
                 <div style="width: 100%; max-width: 850px; margin: 0 auto;">
                     <div style="display: flex; justify-content: flex-end; margin-bottom: 20px; max-width: 800px; margin-left: auto; margin-right: auto;">
-                        <div style="color: #ffd700; font-size: 1.2rem; margin: 0;">当前金币: ${this.state.gold}</div>
+                        <div id="relic-shop-gold" style="color: #ffd700; font-size: 1.2rem; margin: 0;">当前金币: ${this.state.gold}</div>
                     </div>
                     <div class="relic-cards-container" style="max-width: 800px; margin: 0 auto;">
                         ${this.shopItems.map((item, i) => {
-                            const rarityColors: Record<string, string> = {
-                                common: '#44ff88',
-                                rare: '#4488ff',
-                                epic: '#aa44ff'
-                            };
-                            const rarityText: Record<string, string> = {
-                                common: '普通',
-                                rare: '稀有',
-                                epic: '史诗'
-                            };
+                            const rarityColor = RELIC_RARITY_COLORS[item.relic.rarity];
+                            const rarityText = RELIC_RARITY_TEXT[item.relic.rarity];
                             return `
-                                <div class="relic-select-card" data-shop-index="${i}" style="opacity: ${item.sold ? 0.5 : 1}; display: flex; flex-direction: column; min-height: 200px;">
-                                    <div class="relic-card-name" style="color: ${rarityColors[item.relic.rarity]};">${item.relic.name}</div>
-                                    <div style="font-size: 0.9rem; color: ${rarityColors[item.relic.rarity]}; margin-bottom: 5px; text-align: center;">${rarityText[item.relic.rarity]}</div>
+                                <div class="relic-select-card" data-shop-index="${i}" style="opacity: ${item.sold ? 0.5 : 1}; display: flex; flex-direction: column; min-height: 200px; border-color: ${rarityColor};">
+                                    <div class="relic-card-name" style="color: ${rarityColor};">${item.relic.name}</div>
+                                    <div style="font-size: 0.9rem; color: ${rarityColor}; margin-bottom: 5px; text-align: center;">${rarityText}</div>
                                     <div style="font-size: 1.2rem; color: #ffd700; margin-bottom: 10px; text-align: center;">价格: ${item.relic.price} 金币</div>
-                                    <div class="relic-card-desc" style="flex: 1;">${item.relic.description}</div>
+                                    <div class="relic-card-desc" style="flex: 1;">${getRelicDescription(item.relic, this.state.maxHeat)}</div>
                                     <button class="btn ${item.sold ? 'secondary' : 'primary'}" data-shop-index="${i}" style="margin-top: 15px; ${item.sold ? 'background: #666; cursor: not-allowed;' : ''}" ${item.sold || this.state.gold < item.relic.price ? 'disabled' : ''}>
                                         ${item.sold ? '已售出' : '购买'}
                                     </button>
@@ -291,7 +288,7 @@ export class RelicScene extends Phaser.Scene {
         button.style.background = '#666';
         button.style.cursor = 'not-allowed';
         
-        const goldDisplay = document.querySelector('[style*="color: #ffd700; text-align: center; margin-bottom: 15px; font-size: 1.2rem;"]');
+        const goldDisplay = document.getElementById('relic-shop-gold');
         if (goldDisplay) {
             goldDisplay.textContent = `当前金币: ${this.state.gold}`;
         }

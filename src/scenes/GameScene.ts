@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS, getStageTarget, TOTAL_ROUNDS } from '../constants';
 import { GameState, Module, ModuleResult, GamePhase } from '../types';
-import { createInitialState, resetRoundState, calculateRoundScore, saveHistory, hasRelic, countRelic, resetStageState, calculateGoldReward, calculateDangerStopBonus, calculateOverachievementGold, calculateSettlementPreview } from '../store';
+import { createInitialState, resetRoundState, calculateRoundScore, saveHistory, hasRelic, countRelic, resetStageState, calculateGoldReward, calculateOverachievementGold, calculateSettlementPreview } from '../store';
 import { getWeightedRandomModule, ModuleInfo, getAllModules } from '../modules';
-import { getAllRelics } from '../relics';
+import { getExtremeParanoiaThreshold, getFuseRetainRate, getRelicDescription, getRelicsForRules, isUniqueRelic, RELIC_RARITY_COLORS, RELIC_RARITY_TEXT } from '../relics';
 
 export class GameScene extends Phaser.Scene {
     private state!: GameState;
@@ -51,7 +51,7 @@ export class GameScene extends Phaser.Scene {
     private createGameUI(): string {
         const target = getStageTarget(this.state.stage);
         const relicList = this.state.relics.length > 0
-            ? this.state.relics.slice(0, 5).map(r => `<span class="relic-item">${r.name}</span>`).join('')
+            ? this.state.relics.slice(0, 5).map(r => `<span class="relic-item" style="border-color: ${RELIC_RARITY_COLORS[r.rarity]};" title="${RELIC_RARITY_TEXT[r.rarity]}">${r.name}</span>`).join('')
             : '<span class="relic-more">无</span>';
 
         const coreChipDisplay = this.state.coreChip
@@ -184,7 +184,7 @@ export class GameScene extends Phaser.Scene {
         }
 
         if (relicContainer) {
-            const allRelics = getAllRelics();
+            const allRelics = getRelicsForRules(this.state.relics);
             const relicCounts: Record<string, number> = {};
             this.state.relics.forEach(r => {
                 relicCounts[r.id] = (relicCounts[r.id] || 0) + 1;
@@ -193,10 +193,14 @@ export class GameScene extends Phaser.Scene {
             relicContainer.innerHTML = allRelics.map(relic => {
                 const owned = relicCounts[relic.id] || 0;
                 const ownedText = owned > 0 ? `<div class="relic-info-owned">已拥有 ${owned} 个</div>` : '';
+                const rarityColor = RELIC_RARITY_COLORS[relic.rarity];
+                const uniqueText = isUniqueRelic(relic) ? '<div style="font-size: 0.75rem; color: #ffdd44; margin-bottom: 6px;">至多获取一个</div>' : '';
                 return `
-                    <div class="relic-info-item">
-                        <div class="relic-info-name">${relic.name}</div>
-                        <div class="relic-info-desc">${relic.description}</div>
+                    <div class="relic-info-item" style="border-color: ${rarityColor};">
+                        <div class="relic-info-name" style="color: ${rarityColor};">${relic.name}</div>
+                        <div style="font-size: 0.8rem; color: ${rarityColor}; margin-bottom: 6px;">${RELIC_RARITY_TEXT[relic.rarity]}</div>
+                        ${uniqueText}
+                        <div class="relic-info-desc">${getRelicDescription(relic, this.state.maxHeat)}</div>
                         ${ownedText}
                     </div>
                 `;
@@ -293,28 +297,25 @@ export class GameScene extends Phaser.Scene {
         const heatPercent = (this.state.heat / this.state.maxHeat) * 100;
         heatBar.setAttribute('style', `width: ${heatPercent}%`);
 
+        const heatRatio = this.state.heat / this.state.maxHeat;
         heatBar.classList.remove('medium', 'high');
-        if (this.state.heat >= 7) {
+        if (heatRatio >= 0.9) {
             heatBar.classList.add('high');
-        } else if (this.state.heat >= 4) {
+        } else if (heatRatio >= 0.7) {
             heatBar.classList.add('medium');
         }
 
         const heatWarning = document.getElementById('heat-warning')!;
-        if (this.state.heat >= 9) {
+        if (heatRatio >= 0.9) {
             heatWarning.textContent = '⚠️ 危险！即将过载！';
-        } else if (this.state.heat >= 7) {
+        } else if (heatRatio >= 0.7) {
             heatWarning.textContent = '⚡ 高热警告';
         } else {
             heatWarning.textContent = '';
         }
 
         const pendingEffect = document.getElementById('pending-effect')!;
-        if (this.state.amplifierActive) {
-            pendingEffect.textContent = `🔺 放大待命 (剩余${this.state.amplifierCount}次)`;
-        } else {
-            pendingEffect.textContent = '';
-        }
+        pendingEffect.innerHTML = this.renderPendingEffects();
 
         const copyableModule = document.getElementById('copyable-module')!;
         if (this.state.lastModule && this.state.lastModule.id !== 'copy' && this.state.lastModule.id !== 'amplifier') {
@@ -389,12 +390,78 @@ export class GameScene extends Phaser.Scene {
     private updateRelicList(): void {
         const relicList = document.getElementById('relic-list')!;
         if (this.state.relics.length > 0) {
-            const display = this.state.relics.slice(0, 5).map(r => `<span class="relic-item">${r.name}</span>`).join('');
+            const display = this.state.relics.slice(0, 5).map(r => `<span class="relic-item" style="border-color: ${RELIC_RARITY_COLORS[r.rarity]};" title="${RELIC_RARITY_TEXT[r.rarity]}">${r.name}</span>`).join('');
             const more = this.state.relics.length > 5 ? `<span class="relic-more">+${this.state.relics.length - 5}更多</span>` : '';
             relicList.innerHTML = display + more;
         } else {
             relicList.innerHTML = '<span class="relic-more">无</span>';
         }
+    }
+
+    private renderPendingEffects(): string {
+        const effects: Array<{ rarityRank: number; text: string }> = [];
+        const rarityRank: Record<string, number> = {
+            legendary: 0,
+            epic: 1,
+            rare: 2,
+            common: 3
+        };
+        const addRelicEffect = (relicId: string, text: string): void => {
+            const relic = this.state.relics.find(r => r.id === relicId);
+            if (relic) {
+                effects.push({ rarityRank: rarityRank[relic.rarity], text });
+            }
+        };
+
+        if (this.state.amplifierActive && this.state.amplifierCount > 0) {
+            effects.push({ rarityRank: -1, text: `🔺 放大待命 (剩余${this.state.amplifierCount}次)` });
+        }
+
+        if (hasRelic(this.state, 'meltdown_protocol') && !this.state.meltdownProtocolUsed) {
+            addRelicEffect('meltdown_protocol', '熔断协议: 首次过载保护待命');
+        }
+        if (hasRelic(this.state, 'quantum_bypass') && !this.state.quantumBypassUsed) {
+            addRelicEffect('quantum_bypass', '量子旁路: 首次过载 10% 清空热量');
+        }
+
+        const nextDrawCount = this.state.modulesThisRound.length + 1;
+        if (hasRelic(this.state, 'superconductor_coil')) {
+            const remaining = 3 - ((nextDrawCount - 1) % 3);
+            addRelicEffect('superconductor_coil', remaining === 1 ? '超导线圈: 下次抽取 +1 倍率' : `超导线圈: 还差 ${remaining} 次抽取`);
+        }
+
+        if (this.state.stabilizerRemaining > 0) {
+            addRelicEffect('stabilizer', `稳压器: 可抵消 ${this.state.stabilizerRemaining} 次黄芯热量`);
+        }
+
+        if (hasRelic(this.state, 'heat_fin') && !this.state.modulesThisRound.some(m => m.id === 'coolant')) {
+            addRelicEffect('heat_fin', '散热鳍片: 首个冷却 +25 筹码');
+        }
+
+        if (hasRelic(this.state, 'copper_conductor') && this.state.modulesThisRound.length < 2) {
+            addRelicEffect('copper_conductor', `铜制导片: 第 ${nextDrawCount} 次抽取 +${countRelic(this.state, 'copper_conductor') * 10} 筹码`);
+        }
+
+        if (hasRelic(this.state, 'short_circuit_reward')) {
+            if (this.state.heat === 6) {
+                addRelicEffect('short_circuit_reward', `短路奖励: 下次抽取 +${countRelic(this.state, 'short_circuit_reward') * 80} 筹码`);
+            }
+        }
+
+        return effects
+            .sort((a, b) => a.rarityRank - b.rarityRank)
+            .map(effect => `<div>${effect.text}</div>`)
+            .join('');
+    }
+
+    private getDrawHeatIncrease(): number {
+        return countRelic(this.state, 'insulation_tape') > 0 && !this.state.heatReductionUsed ? 0 : 1;
+    }
+
+    private getMultGain(baseGain: number): number {
+        return hasRelic(this.state, 'overclock_core') && this.state.heat / this.state.maxHeat >= 0.9
+            ? baseGain * 2
+            : baseGain;
     }
 
     private onDrawModule(): void {
@@ -404,10 +471,17 @@ export class GameScene extends Phaser.Scene {
         this.state.processing = true;
         this.buttonsDisabled = true;
 
-        this.state.heat += 1;
+        const heatBeforeDraw = this.state.heat;
+        const drawHeatIncrease = this.getDrawHeatIncrease();
+        if (drawHeatIncrease === 0 && countRelic(this.state, 'insulation_tape') > 0 && !this.state.heatReductionUsed) {
+            this.state.heatReductionUsed = true;
+            this.state.log.push('[绝缘胶带] 触发: 本次热量增加 -1');
+        }
+        this.state.heat += drawHeatIncrease;
+        const heatAfterDrawCost = this.state.heat;
 
         const module = getWeightedRandomModule();
-        const result = this.applyModule(module);
+        const result = this.applyModule(module, heatBeforeDraw);
 
         if (this.state.heat >= this.state.maxHeat) {
             this.triggerOverload();
@@ -421,46 +495,153 @@ export class GameScene extends Phaser.Scene {
         this.buttonsDisabled = false;
     }
 
-    private applyModule(module: Module): ModuleResult {
+    private applyModule(module: Module, heatBeforeDraw: number): ModuleResult {
         const prevModule = this.state.lastModule;
+        const wasAmplified = this.state.amplifierActive && this.state.amplifierCount > 0;
+        const heatBeforeModule = this.state.heat;
+        const multBeforeEffects = this.state.mult;
         const result = module.apply(this.state, prevModule, this.state.amplifierCount);
 
-        if (this.state.amplifierActive && module.id !== 'amplifier') {
-            this.state.amplifierCount--;
-            if (this.state.amplifierCount <= 0) {
+        if (wasAmplified) {
+            if (module.id === 'copy' || module.id === 'amplifier') {
+                this.state.amplifierCount += 1;
+                this.state.amplifierActive = true;
+                this.state.log.push(`[放大] ${module.name} 被放大: 放大待命 +1`);
+            } else {
+                this.state.amplifierCount = Math.max(0, this.state.amplifierCount - 1);
+                if (this.state.amplifierCount === 0) {
+                    this.state.amplifierActive = false;
+                }
+                const extraResult = module.apply(this.state, prevModule, 1);
+                result.chips += extraResult.chips;
+                result.mult += extraResult.mult;
+                result.xmult += extraResult.xmult;
+                result.heat += extraResult.heat;
+                this.state.log.push(`[放大] ${module.name} 再次触发!`);
+            }
+        }
+
+        if (this.state.amplifierCount <= 0) {
+            this.state.amplifierCount = 0;
+            this.state.amplifierActive = false;
+        }
+
+        if (result.heat > 0 && countRelic(this.state, 'insulation_tape') > 0 && !this.state.heatReductionUsed) {
+            this.state.heat = Math.max(0, this.state.heat - 1);
+            result.heat -= 1;
+            this.state.heatReductionUsed = true;
+            this.state.log.push('[绝缘胶带] 触发: 本次热量增加 -1');
+        }
+
+        if (result.heat < 0 && heatBeforeModule > 0 && this.state.heat === 0) {
+            const reboundCount = countRelic(this.state, 'coolant_rebound');
+            if (reboundCount > 0) {
+                const bonus = reboundCount * 80;
+                this.state.chips += bonus;
+                result.chips += bonus;
+                this.state.log.push(`[冷却反冲] 触发: +${bonus} 筹码`);
+            }
+        }
+
+        const overcurrentCount = countRelic(this.state, 'overcurrent_meter');
+        if (overcurrentCount > 0) {
+            for (const threshold of [3, 6, 9]) {
+                if (this.state.heat >= threshold && !this.state.overcurrentThresholdsTriggered.includes(threshold)) {
+                    this.state.overcurrentThresholdsTriggered.push(threshold);
+                    const gain = this.getMultGain(overcurrentCount);
+                    this.state.mult += gain;
+                    result.mult += gain;
+                    this.state.log.push(`[过流计] 触发: +${gain} 倍率 (热量达到 ${threshold})`);
+                }
+            }
+        }
+
+        if (this.state.amplifierCount <= 0) {
+            this.state.amplifierCount = 0;
+            if (module.id !== 'amplifier') {
                 this.state.amplifierActive = false;
             }
-            const extraResult = module.apply(this.state, prevModule, 1);
-            result.chips += extraResult.chips;
-            result.mult += extraResult.mult;
-            result.xmult += extraResult.xmult;
-            result.heat += extraResult.heat;
-            this.state.log.push(`[放大] ${module.name} 再次触发!`);
         }
 
         this.state.modulesThisRound.push(module);
         this.state.lastModule = module;
 
+        const drawCount = this.state.modulesThisRound.length;
+        const copperCount = countRelic(this.state, 'copper_conductor');
+        if (copperCount > 0 && drawCount <= 2) {
+            const bonus = copperCount * 10;
+            this.state.chips += bonus;
+            result.chips += bonus;
+            this.state.log.push(`[铜制导片] 触发: +${bonus} 筹码 (第${drawCount}抽)`);
+        }
+
         for (const relic of this.state.relics) {
             if (relic.id === 'superconductor_coil') {
-                const count = this.state.modulesThisRound.length;
-                if (count % 3 === 0) {
-                    this.state.mult += 1;
-                    this.state.log.push(`[超导线圈] 触发: +1 倍率 (第${count}抽)`);
+                if (drawCount % 3 === 0) {
+                    const gain = this.getMultGain(1);
+                    this.state.mult += gain;
+                    result.mult += gain;
+                    this.state.log.push(`[超导线圈] 触发: +${gain} 倍率 (第${drawCount}抽)`);
                 }
             }
         }
 
-        if (module.id !== 'copy' && module.id !== 'amplifier') {
-            for (const relic of this.state.relics) {
-                if (relic.id === 'out_of_control_circuit' && this.state.heat >= 7) {
-                    const extra = result.chips;
-                    if (extra > 0) {
-                        this.state.chips += extra;
-                        this.state.log.push(`[失控回路] 触发: 筹码翻倍 +${extra}`);
-                    }
-                }
+        if (module.id === 'coolant') {
+            const coolantCacheCount = countRelic(this.state, 'coolant_cache');
+            const coolantCount = this.state.modulesThisRound.filter(m => m.id === 'coolant').length;
+            if (coolantCacheCount > 0 && coolantCount % 2 === 0) {
+                this.state.xmult += coolantCacheCount;
+                result.xmult += coolantCacheCount;
+                this.state.log.push(`[冷却缓存] 触发: X倍率 +${coolantCacheCount} (第${coolantCount}个冷却)`);
             }
+            const zeroPointCount = countRelic(this.state, 'zero_point_cooling');
+            if (zeroPointCount > 0 && !this.state.zeroPointCoolingUsed && heatBeforeModule > 0 && this.state.heat === 0) {
+                const gain = zeroPointCount * 3;
+                this.state.xmult += gain;
+                result.xmult += gain;
+                this.state.zeroPointCoolingUsed = true;
+                this.state.log.push(`[零点冷却] 触发: X倍率 +${gain}`);
+            }
+        }
+
+        const shortCircuitCount = countRelic(this.state, 'short_circuit_reward');
+        if (shortCircuitCount > 0 && heatBeforeDraw === 6) {
+            const bonus = shortCircuitCount * 80;
+            this.state.chips += bonus;
+            result.chips += bonus;
+            this.state.log.push(`[短路奖励] 触发: +${bonus} 筹码 (热量=6)`);
+        }
+
+        const spareWireCount = countRelic(this.state, 'spare_wire');
+        if (spareWireCount > 0 && drawCount % 4 === 0) {
+            const bonus = spareWireCount * 15;
+            this.state.chips += bonus;
+            result.chips += bonus;
+            this.state.log.push(`[备用导线] 触发: +${bonus} 筹码 (第${drawCount}抽)`);
+        }
+
+        const oldFanCount = countRelic(this.state, 'old_fan');
+        if (oldFanCount > 0 && drawCount % 5 === 0) {
+            this.state.heat = Math.max(0, this.state.heat - oldFanCount);
+            result.heat -= oldFanCount;
+            this.state.log.push(`[旧式风扇] 触发: -${oldFanCount} 热量 (第${drawCount}抽)`);
+        }
+
+        const capacitorCount = countRelic(this.state, 'old_capacitor');
+        if (capacitorCount > 0 && !this.state.capacitorUsed && this.state.mult > multBeforeEffects) {
+            const gain = this.getMultGain(capacitorCount);
+            this.state.mult += gain;
+            result.mult += gain;
+            this.state.capacitorUsed = true;
+            this.state.log.push(`[废旧电容] 触发: +${gain} 倍率`);
+        }
+
+        const thinCopperWireCount = countRelic(this.state, 'thin_copper_wire');
+        if (thinCopperWireCount > 0 && result.chips > 0) {
+            const bonus = thinCopperWireCount * 5;
+            this.state.chips += bonus;
+            result.chips += bonus;
+            this.state.log.push(`[细铜线] 触发: +${bonus} 筹码`);
         }
 
         this.state.log.push(result.log);
@@ -496,10 +677,43 @@ export class GameScene extends Phaser.Scene {
     private triggerOverload(): void {
         this.state.overloaded = true;
 
-        const fuseCount = countRelic(this.state, 'fuse');
+        if (hasRelic(this.state, 'quantum_bypass') && !this.state.quantumBypassUsed) {
+            this.state.quantumBypassUsed = true;
+            if (Math.random() < 0.1) {
+                this.state.overloaded = false;
+                this.state.heat = 0;
+                this.state.log.push('[量子旁路] 触发: 清空热量，保留所有筹码和倍率');
+                this.updateAllUI();
+
+                setTimeout(() => {
+                    this.buttonsDisabled = false;
+                    this.state.processing = false;
+                }, 800);
+                return;
+            }
+            this.state.log.push('[量子旁路] 未触发');
+        }
+
+        if (hasRelic(this.state, 'meltdown_protocol') && !this.state.meltdownProtocolUsed) {
+            this.state.overloaded = false;
+            this.state.meltdownProtocolUsed = true;
+            this.state.heat = 5;
+            this.state.xmult = Math.max(0, this.state.xmult - 1);
+            this.state.log.push(`[熔断协议] 首次过载被阻止: 热量降为 5, X倍率 -1`);
+            this.showOverloadEffect();
+            this.updateAllUI();
+
+            setTimeout(() => {
+                this.buttonsDisabled = false;
+                this.state.processing = false;
+            }, 800);
+            return;
+        }
+
+        const fuseRetainRate = getFuseRetainRate(this.state.relics);
         let retainedScore = 0;
-        if (fuseCount > 0) {
-            retainedScore = Math.floor(calculateRoundScore(this.state) * 0.35 * fuseCount);
+        if (fuseRetainRate > 0) {
+            retainedScore = Math.floor(calculateRoundScore(this.state) * fuseRetainRate);
             this.state.fuseRetainedScore = retainedScore;
             this.state.fuseTriggered = true;
         }
@@ -510,7 +724,7 @@ export class GameScene extends Phaser.Scene {
         this.state.log.push('═══════════════════');
         this.state.log.push('💥 过载爆表！本回合失败！');
         if (retainedScore > 0) {
-            this.state.log.push(`[保险丝] 保留 ${retainedScore.toLocaleString()} 分`);
+            this.state.log.push(`[保险丝] 保留 ${retainedScore.toLocaleString()} 分 (${Math.floor(fuseRetainRate * 100)}%)`);
         }
         this.state.log.push('═══════════════════');
 
@@ -549,7 +763,7 @@ export class GameScene extends Phaser.Scene {
         const preview = calculateSettlementPreview(this.state);
         const finalRoundScore = preview.previewFinalScore;
 
-        if (hasRelic(this.state, 'extreme_paranoia') && this.state.heat === 9) {
+        if (hasRelic(this.state, 'extreme_paranoia') && this.state.heat === getExtremeParanoiaThreshold(this.state.maxHeat)) {
             const bonusXmult = 2 * countRelic(this.state, 'extreme_paranoia');
             this.state.xmult += bonusXmult;
             this.state.log.push(`[极限偏执] 触发: X倍率 +${bonusXmult} (热量=${this.state.heat})`);
@@ -563,8 +777,6 @@ export class GameScene extends Phaser.Scene {
                 this.state.log.push(`[空转增压] 触发: X倍率 +${bonus}`);
             }
         }
-
-        const dangerBonus = calculateDangerStopBonus(this.state);
 
         this.state.roundScore = finalRoundScore;
         if (finalRoundScore > this.state.maxRoundScore) {

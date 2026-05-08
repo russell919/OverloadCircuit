@@ -17,7 +17,7 @@ export interface Module {
     apply(state: GameState, prevModule: Module | null, amplifier: number): ModuleResult;
 }
 
-export type Rarity = 'common' | 'rare' | 'epic';
+export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 
 export interface Relic {
     id: string;
@@ -86,6 +86,12 @@ export interface GameState {
     overloaded: boolean;
     fuseTriggered: boolean;
     fuseRetainedScore: number;
+    meltdownProtocolUsed: boolean;
+    quantumBypassUsed: boolean;
+    zeroPointCoolingUsed: boolean;
+    heatReductionUsed: boolean;
+    capacitorUsed: boolean;
+    overcurrentThresholdsTriggered: number[];
     processing: boolean;
     gold: number;
     goldReward?: GoldRewardBreakdown;
