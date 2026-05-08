@@ -23,6 +23,9 @@ export class PvpStarterShopScene extends Phaser.Scene {
     init(data: { state: GameState }): void {
         this.state = data.state;
         this.relics = getAllRelics();
+        this.boughtIds = new Set<string>();
+        this.filter = 'all';
+        this.pendingScrollTop = null;
     }
 
     create(): void {
