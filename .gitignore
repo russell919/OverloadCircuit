@@ -1,0 +1,7 @@
+*.mp4
+初赛提案反馈.md
+.trae/superpowers/
+node_modules/
+dist/
+.DS_Store
+*.log

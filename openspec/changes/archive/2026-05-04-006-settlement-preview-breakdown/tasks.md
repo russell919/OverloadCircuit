@@ -1,0 +1,34 @@
+# Tasks
+
+- [x] 审计当前 previewScore 与 finalRoundScore 的计算路径
+- [x] 抽取统一的 settlement preview 纯函数
+- [x] 将原"预估结算分"改为"当前构筑基础分"
+- [x] 新增"现在停手可得"区域
+- [x] 新增结算分解明细
+- [x] 让停手实际结算复用同一套结算函数
+- [x] 调整结算动画，使其基于新的最终预估区域
+- [x] 增加验证脚本或测试，证明 previewFinalScore 等于 actual finalRoundScore
+- [x] 更新 README
+- [x] 更新 docs/current-game-rules.md
+- [x] 运行 openspec validate --all
+- [x] 验证 previewFinalScore 等于 actual finalRoundScore
+- [x] 验证 stageScore 增量等于 previewFinalScore
+- [x] UI 修复：添加 CSS 样式修复可读性
+- [x] UI 修复：添加副说明文字"仅基础分，非最终结算"
+- [x] 布局修复：设置模块卡片区域 min-height 防止跳动
+- [x] 布局修复：结算明细区域设置 max-height 和 overflow-y
+- [x] 交互修复：按钮遮挡问题修复（设置 pointer-events: none）
+- [x] 样式修复：分数卡片改为紧凑并排布局（max-width + clamp）
+- [x] 验证：底部三个按钮可点击
+- [x] 验证：模块卡片行位置稳定
+- [x] 结构重组：移除 score-cards-container，将基础分改为公式行
+- [x] 结构重组：新增预估结算分数独立大数字显示
+- [x] 结构重组：新增分数增幅原因 breakdown-panel
+- [x] 命名修改："现在停手可得"改为"预估结算分数"
+- [x] 动画修复：移除独立的 showSettleAnimation，改为在预估结算分数上播放动画
+- [x] 小方框修复：当无增幅时显示"暂无额外增幅"
+- [x] 布局优化：基础分融入 stats-section，使用"= 基础分"格式
+- [x] 样式优化：隐藏 breakdown-panel 滚动条，添加 min-height
+- [x] 样式优化：删除旧的 .settle-score 残留样式
+- [x] Bug修复：修复 onSettle 中动画数字比预估分更大的问题
+- [x] 验证：动画数字 previewFinalScore = actualFinalRoundScore
