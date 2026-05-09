@@ -36,7 +36,7 @@ export function isValidProfile(profile: PlayerProfile): boolean {
     return !!profile.displayName && profile.displayName.length <= 8 && /^\d{4}$/.test(profile.playerCode);
 }
 
-export async function submitPveLeaderboard(highestRoundScore: number, highestStageScore: number): Promise<void> {
+export async function submitPveLeaderboard(highestRoundScore: number, highestStage: number): Promise<void> {
     const profile = getPlayerProfile();
     if (!profile) return;
     await fetch('/api/leaderboard', {
@@ -45,7 +45,7 @@ export async function submitPveLeaderboard(highestRoundScore: number, highestSta
         body: JSON.stringify({
             ...profile,
             highestRoundScore,
-            highestStageScore
+            highestStage
         })
     });
 }

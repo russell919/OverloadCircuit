@@ -313,13 +313,13 @@
         }
 
         .preview-final-value.stage-clear-overkill {
-            color: #ffe766;
+            color: #ff3333;
             text-shadow:
-                0 0 16px rgba(255, 221, 68, 1),
-                0 0 42px rgba(255, 68, 68, 0.95),
-                0 0 82px rgba(255, 20, 20, 0.75),
-                0 0 120px rgba(255, 221, 68, 0.35);
-            animation: preview-red-gold-glow 1.35s ease-in-out infinite;
+                0 0 10px rgba(255, 255, 255, 0.85),
+                0 0 28px rgba(255, 55, 55, 1),
+                0 0 64px rgba(255, 0, 0, 0.95),
+                0 0 112px rgba(255, 34, 34, 0.75);
+            animation: preview-red-gold-glow 1s ease-in-out infinite;
         }
 
         @keyframes preview-settle {
@@ -335,8 +335,8 @@
         }
 
         @keyframes preview-red-gold-glow {
-            0%, 100% { transform: translateY(0) scale(1); filter: brightness(1.05); }
-            50% { transform: translateY(-1px) scale(1.055); filter: brightness(1.35); }
+            0%, 100% { transform: translateY(0) scale(1); filter: brightness(1.12) saturate(1.25); }
+            50% { transform: translateY(-1px) scale(1.07); filter: brightness(1.55) saturate(1.55); }
         }
 
         .breakdown-panel {
@@ -1021,6 +1021,13 @@
             padding-bottom: 12px;
         }
 
+        .pvp-starter-scroll {
+            width: min(1180px, 96vw);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
         .pvp-rarity-tabs {
             width: min(1180px, 96vw);
             display: flex;
@@ -1539,6 +1546,556 @@
             .leaderboard-head span:last-child,
             .leaderboard-row time {
                 display: none;
+            }
+
+            :root {
+                --text-xs: 10px;
+                --text-sm: 12px;
+                --text-base: 13px;
+                --text-lg: 16px;
+                --text-xl: 19px;
+                --text-2xl: 22px;
+            }
+
+            #game-ui {
+                height: 100dvh;
+                max-height: 100dvh;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            .left-panel {
+                flex: 0 0 auto;
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 4px 8px;
+                padding: 7px 8px 6px;
+                max-height: 27dvh;
+                overflow: hidden;
+            }
+
+            .game-title {
+                display: none;
+            }
+
+            .core-chip-display {
+                grid-column: 1 / -1;
+                margin-top: 0 !important;
+                font-size: 10px !important;
+                line-height: 1.15;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .info-block {
+                gap: 0;
+                min-width: 0;
+            }
+
+            .info-label {
+                font-size: 9px;
+                white-space: nowrap;
+            }
+
+            .info-value {
+                font-size: 12px;
+                line-height: 1.15;
+                overflow-wrap: anywhere;
+            }
+
+            .heat-section {
+                grid-column: 1 / -1;
+                margin-top: 0;
+            }
+
+            .heat-label {
+                margin-bottom: 2px;
+                line-height: 1.1;
+            }
+
+            .heat-bar-container {
+                height: 10px;
+            }
+
+            .heat-warning {
+                min-height: 0;
+                height: 0;
+                overflow: hidden;
+                margin-top: 0;
+            }
+
+            .relic-section {
+                grid-column: 1 / -1;
+                margin-top: 0;
+                min-width: 0;
+            }
+
+            .relic-title {
+                display: none;
+            }
+
+            .relic-list {
+                flex-wrap: nowrap;
+                overflow: hidden;
+                max-height: 18px;
+            }
+
+            .relic-item,
+            .relic-more {
+                flex: 0 0 auto;
+                font-size: 9px;
+                padding: 1px 4px;
+                white-space: nowrap;
+            }
+
+            #btn-rules {
+                display: none;
+            }
+
+            .center-panel {
+                flex: 1 1 auto;
+                min-height: 0;
+                height: auto;
+                padding: 6px 8px 5px;
+                gap: 5px;
+                overflow: hidden;
+            }
+
+            .stats-section {
+                flex: 0 0 auto;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 4px;
+                padding: 0;
+            }
+
+            .stat-value {
+                font-size: 18px;
+            }
+
+            .stat-label {
+                margin-top: 2px;
+                font-size: 9px;
+            }
+
+            .modules-section {
+                flex: 0 0 58px;
+                min-height: 58px;
+                max-height: 58px;
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                align-items: stretch;
+                gap: 6px;
+                padding: 0;
+                margin-top: 0;
+                overflow: hidden;
+            }
+
+            .module-card {
+                width: 100%;
+                min-width: 0;
+                max-width: none;
+                height: 58px;
+                border-radius: 7px;
+            }
+
+            .module-name {
+                font-size: 13px;
+            }
+
+            .module-effect {
+                font-size: 9px;
+                line-height: 1.15;
+            }
+
+            .preview-final-section {
+                flex: 0 0 auto;
+                padding: 2px 0 0;
+            }
+
+            .preview-final-label {
+                font-size: 11px;
+                margin-bottom: 2px;
+            }
+
+            .preview-final-value {
+                font-size: clamp(28px, 10vw, 38px);
+                line-height: 1;
+            }
+
+            .breakdown-panel {
+                flex: 0 1 82px;
+                min-height: 26px;
+                max-height: 82px;
+                padding: 5px 7px;
+                border-radius: 6px;
+            }
+
+            .breakdown-title {
+                display: none;
+            }
+
+            .breakdown-item {
+                padding: 1px 0;
+                font-size: 10px;
+            }
+
+            .breakdown-desc {
+                display: none;
+            }
+
+            .breakdown-total {
+                padding-top: 3px;
+                margin-top: 3px;
+            }
+
+            .breakdown-total-label {
+                font-size: 10px;
+            }
+
+            .breakdown-total-value {
+                font-size: 13px;
+            }
+
+            .breakdown-empty {
+                padding: 2px 0;
+                font-size: 10px;
+            }
+
+            .buttons-section {
+                flex: 0 0 auto;
+                grid-template-columns: 1fr 1fr 0.72fr;
+                gap: 6px;
+                padding: 4px 0 0;
+                margin-top: 0;
+                position: static;
+                background: transparent;
+            }
+
+            .buttons-section .btn {
+                min-height: 38px;
+                padding: 8px 5px;
+                font-size: 12px;
+                border-radius: 7px;
+            }
+
+            #btn-restart {
+                grid-column: auto;
+            }
+
+            .right-panel {
+                flex: 0 0 auto;
+                display: grid;
+                grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+                gap: 4px 8px;
+                padding: 5px 8px 7px;
+                max-height: 18dvh;
+                overflow: hidden;
+            }
+
+            .right-section-title:nth-of-type(3),
+            .log-section {
+                display: none;
+            }
+
+            .right-section-title {
+                padding-bottom: 1px;
+                font-size: 9px;
+            }
+
+            .pending-effect {
+                min-height: 0;
+                max-height: 42px;
+                padding: 3px 5px;
+                overflow: hidden;
+                line-height: 1.25;
+            }
+
+            .copyable-module {
+                grid-column: 1 / 2;
+                margin-top: -2px;
+                font-size: 9px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .recent-modules {
+                grid-column: 2 / 3;
+                grid-row: 2 / span 2;
+                gap: 2px;
+                overflow: hidden;
+            }
+
+            .recent-item {
+                font-size: 9px;
+                line-height: 1.15;
+                padding: 2px 4px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .menu-container,
+            .result-container,
+            .pvp-lobby-container,
+            .pvp-wait-container,
+            .pvp-result-container,
+            .leaderboard-container {
+                height: 100dvh;
+                max-height: 100dvh;
+                overflow-y: auto;
+                padding: 14px 12px;
+            }
+
+            .relic-select-container,
+            .pvp-shop-container {
+                height: 100dvh;
+                max-height: 100dvh;
+                overflow: hidden;
+                justify-content: flex-start !important;
+                gap: 10px !important;
+                padding: 10px 10px 12px !important;
+            }
+
+            .relic-select-container > div[style*="text-align: center"] {
+                width: 100%;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .relic-select-title {
+                font-size: 21px;
+                line-height: 1.15;
+                margin-bottom: 0 !important;
+            }
+
+            .relic-cards-container {
+                flex: 1 1 auto;
+                min-height: 0;
+                width: 100% !important;
+                max-width: 100% !important;
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 8px !important;
+                overflow-y: auto;
+                padding: 0 2px 4px;
+            }
+
+            .relic-select-card {
+                width: 100%;
+                min-height: 0 !important;
+                padding: 10px 12px;
+                gap: 5px;
+                border-radius: 8px;
+            }
+
+            .relic-card-name {
+                font-size: 14px;
+                line-height: 1.2;
+            }
+
+            .relic-card-desc {
+                font-size: 11px;
+                line-height: 1.35;
+            }
+
+            .relic-select-container .btn {
+                min-height: 38px;
+                padding: 8px 14px;
+            }
+
+            .relic-select-container > div[style*="rgba(18, 18, 31"] {
+                flex: 0 0 auto;
+                padding: 9px !important;
+                max-width: 100% !important;
+            }
+
+            .pvp-shop-title {
+                font-size: 22px;
+                line-height: 1.15;
+            }
+
+            .pvp-shop-container {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .pvp-shop-header,
+            .pvp-rarity-tabs,
+            .pvp-starter-scroll,
+            .pvp-rarity-section,
+            .pvp-starter-grid {
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .pvp-starter-scroll {
+                flex: 1 1 auto;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding: 0 2px 8px 0;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .pvp-shop-header {
+                gap: 6px;
+            }
+
+            .pvp-shop-header .pvp-shop-subtitle {
+                font-size: 11px;
+                line-height: 1.35;
+            }
+
+            .pvp-shop-gold {
+                font-size: 14px;
+            }
+
+            .pvp-rarity-tabs {
+                display: grid;
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+                gap: 5px;
+                overflow: visible;
+                padding-bottom: 0;
+            }
+
+            .pvp-rarity-tab {
+                min-width: 0;
+                width: 100%;
+                min-height: 32px;
+                padding: 6px 3px;
+                font-size: 10px;
+                white-space: nowrap;
+            }
+
+            .pvp-rarity-section {
+                flex: 0 0 auto;
+                min-height: auto;
+                overflow: visible;
+                gap: 8px;
+                padding-right: 2px;
+            }
+
+            .pvp-rarity-divider {
+                gap: 3px;
+                padding-top: 8px;
+                margin-top: 2px;
+            }
+
+            .pvp-rarity-divider span {
+                font-size: 14px;
+            }
+
+            .pvp-rarity-divider small {
+                font-size: 10px;
+                line-height: 1.3;
+            }
+
+            .pvp-starter-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
+                overflow: visible;
+                padding-bottom: 6px;
+            }
+
+            .pvp-starter-card {
+                min-height: 0;
+                padding: 10px 12px;
+                gap: 6px;
+            }
+
+            .relic-shop-titlebar {
+                flex: 0 0 auto;
+                margin-bottom: 0 !important;
+            }
+
+            .relic-shop-panel {
+                flex: 1 1 auto;
+                min-height: 0;
+                width: 100% !important;
+                max-width: 100% !important;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .relic-shop-goldbar {
+                flex: 0 0 auto;
+                justify-content: center !important;
+                margin-bottom: 0 !important;
+                max-width: 100% !important;
+            }
+
+            .relic-shop-goldbar #relic-shop-gold {
+                font-size: 14px !important;
+            }
+
+            .relic-shop-grid {
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 8px;
+            }
+
+            .relic-shop-card {
+                align-self: stretch;
+                height: auto;
+                min-height: 0 !important;
+                padding-bottom: 10px;
+                overflow: hidden;
+            }
+
+            .relic-shop-card .relic-card-desc {
+                flex: 0 1 auto !important;
+            }
+
+            .relic-shop-buy {
+                width: 100%;
+                min-height: 34px;
+                margin-top: 8px !important;
+                padding: 7px 10px !important;
+                flex: 0 0 auto;
+            }
+
+            .relic-shop-actions {
+                flex: 0 0 auto;
+                margin-top: 0 !important;
+                padding-top: 4px;
+            }
+
+            .relic-shop-actions .btn {
+                width: 100%;
+            }
+
+            .pvp-relic-meta {
+                font-size: 10px;
+            }
+
+            .pvp-starter-buy {
+                min-height: 34px;
+                padding: 7px 10px;
+            }
+
+            .pvp-shop-footer {
+                position: sticky;
+                bottom: 0;
+                padding: 6px 0 0;
+                background: linear-gradient(180deg, rgba(10, 10, 18, 0), rgba(10, 10, 18, 0.97) 22%);
+            }
+
+            @media (min-width: 420px) and (max-width: 760px) {
+                .pvp-starter-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
             }
         }
 

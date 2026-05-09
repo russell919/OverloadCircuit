@@ -58,7 +58,9 @@ export class PvpStarterShopScene extends Phaser.Scene {
                     ${this.renderFilterButton('all', '全品质')}
                     ${this.rarityOrder.map(rarity => this.renderFilterButton(rarity, RELIC_RARITY_TEXT[rarity])).join('')}
                 </div>
-                ${this.renderRelicSections()}
+                <div class="pvp-starter-scroll">
+                    ${this.renderRelicSections()}
+                </div>
                 <div class="pvp-shop-footer">
                     <button class="btn primary" id="btn-pvp-start-stage">完成购买，进入对战</button>
                 </div>
@@ -69,7 +71,7 @@ export class PvpStarterShopScene extends Phaser.Scene {
             const scrollTop = this.pendingScrollTop;
             this.pendingScrollTop = null;
             requestAnimationFrame(() => {
-                const shopContainer = document.querySelector('.pvp-shop-container') as HTMLElement | null;
+                const shopContainer = document.querySelector('.pvp-starter-scroll') as HTMLElement | null;
                 if (shopContainer) shopContainer.scrollTop = scrollTop;
             });
         }
@@ -176,7 +178,7 @@ export class PvpStarterShopScene extends Phaser.Scene {
         if (relic.id === 'quantum_fan' && !this.state.relics.some(item => item.id === 'turbo_fan')) return;
         if (this.state.gold < relic.price) return;
 
-        const shopContainer = document.querySelector('.pvp-shop-container') as HTMLElement | null;
+        const shopContainer = document.querySelector('.pvp-starter-scroll') as HTMLElement | null;
         this.pendingScrollTop = shopContainer?.scrollTop ?? 0;
         this.state.gold -= relic.price;
         addRelic(this.state, relic);

@@ -18,7 +18,7 @@ export class ResultScene extends Phaser.Scene {
     create(): void {
         this.cameras.main.setBackgroundColor(COLORS.BACKGROUND);
         if (this.state.gameMode === 'pve') {
-            submitPveLeaderboard(this.state.maxRoundScore, this.state.maxStageScore).catch(() => {});
+            submitPveLeaderboard(this.state.maxRoundScore, this.state.stage).catch(() => {});
         }
 
         const container = document.getElementById('game-ui')!;

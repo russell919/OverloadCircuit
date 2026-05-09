@@ -19,7 +19,11 @@ const LEADERBOARD_FILE = path.join(DATA_DIR, 'leaderboard.json');
 async function readLeaderboardDb() {
     try {
         const raw = await fs.readFile(LEADERBOARD_FILE, 'utf-8');
-        return JSON.parse(raw);
+        const db = normalizeLeaderboardDb(JSON.parse(raw));
+        if (db.changed) {
+            await writeLeaderboardDb(db.value);
+        }
+        return db.value;
     } catch {
         return { players: {} };
     }
@@ -28,6 +32,25 @@ async function readLeaderboardDb() {
 async function writeLeaderboardDb(db) {
     await fs.mkdir(DATA_DIR, { recursive: true });
     await fs.writeFile(LEADERBOARD_FILE, JSON.stringify(db, null, 2), 'utf-8');
+}
+
+function normalizeLeaderboardDb(db) {
+    const value = db && typeof db === 'object' ? db : { players: {} };
+    value.players = value.players && typeof value.players === 'object' ? value.players : {};
+    let changed = false;
+    for (const player of Object.values(value.players)) {
+        if (!Object.hasOwn(player, 'highestStage')) {
+            player.highestStage = 0;
+            player.highestStageAt = null;
+            changed = true;
+        }
+        if (Object.hasOwn(player, 'highestStageScore')) {
+            delete player.highestStageScore;
+            delete player.highestStageScoreAt;
+            changed = true;
+        }
+    }
+    return { value, changed };
 }
 
 function formatLeaderboard(db) {
@@ -40,7 +63,7 @@ function formatLeaderboard(db) {
     });
     return {
         highestRoundScore: [...players].filter(p => p.highestRoundScore > 0).sort((a, b) => b.highestRoundScore - a.highestRoundScore).slice(0, 10).map(p => toEntry(p, 'highestRoundScore', 'highestRoundScoreAt')),
-        highestStageScore: [...players].filter(p => p.highestStageScore > 0).sort((a, b) => b.highestStageScore - a.highestStageScore).slice(0, 10).map(p => toEntry(p, 'highestStageScore', 'highestStageScoreAt'))
+        highestStage: [...players].filter(p => p.highestStage > 0).sort((a, b) => b.highestStage - a.highestStage).slice(0, 10).map(p => toEntry(p, 'highestStage', 'highestStageAt'))
     };
 }
 
@@ -77,7 +100,7 @@ async function handleApi(req, res) {
         const displayName = String(body.displayName || '').slice(0, 8);
         const playerCode = String(body.playerCode || '');
         const highestRoundScore = Math.max(0, Number(body.highestRoundScore) || 0);
-        const highestStageScore = Math.max(0, Number(body.highestStageScore) || 0);
+        const highestStage = Math.max(0, Number(body.highestStage) || 0);
         if (!displayName || !/^\d{4}$/.test(playerCode)) {
             res.statusCode = 400;
             res.end(JSON.stringify({ error: 'invalid player profile' }));
@@ -87,16 +110,16 @@ async function handleApi(req, res) {
         const key = `${displayName}#${playerCode}`;
         const now = new Date().toISOString();
         const db = await readLeaderboardDb();
-        const current = db.players[key] || { displayName, playerCode, highestRoundScore: 0, highestRoundScoreAt: null, highestStageScore: 0, highestStageScoreAt: null };
+        const current = db.players[key] || { displayName, playerCode, highestRoundScore: 0, highestRoundScoreAt: null, highestStage: 0, highestStageAt: null };
         current.displayName = displayName;
         current.playerCode = playerCode;
         if (highestRoundScore > current.highestRoundScore) {
             current.highestRoundScore = highestRoundScore;
             current.highestRoundScoreAt = now;
         }
-        if (highestStageScore > current.highestStageScore) {
-            current.highestStageScore = highestStageScore;
-            current.highestStageScoreAt = now;
+        if (highestStage > current.highestStage) {
+            current.highestStage = highestStage;
+            current.highestStageAt = now;
         }
         db.players[key] = current;
         await writeLeaderboardDb(db);

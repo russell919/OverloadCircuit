@@ -416,7 +416,8 @@ export class GameScene extends Phaser.Scene {
 
     private updateModuleCards(): void {
         const modulesSection = document.getElementById('modules-section')!;
-        const recentModules = this.state.modulesThisRound.slice(-6);
+        const maxVisibleModules = window.innerWidth <= 760 ? 3 : 6;
+        const recentModules = this.state.modulesThisRound.slice(-maxVisibleModules);
 
         modulesSection.innerHTML = recentModules.map((mod, i) => {
             const modInfo = mod as ModuleInfo;

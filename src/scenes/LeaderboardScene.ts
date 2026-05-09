@@ -10,7 +10,7 @@ interface LeaderboardEntry {
 
 interface LeaderboardData {
     highestRoundScore: LeaderboardEntry[];
-    highestStageScore: LeaderboardEntry[];
+    highestStage: LeaderboardEntry[];
 }
 
 export class LeaderboardScene extends Phaser.Scene {
@@ -45,20 +45,20 @@ export class LeaderboardScene extends Phaser.Scene {
             const data = await response.json() as LeaderboardData;
             grid.innerHTML = `
                 ${this.renderBoard('最高单回合分榜', data.highestRoundScore)}
-                ${this.renderBoard('历史最高总分榜', data.highestStageScore)}
+                ${this.renderBoard('最高到达层数', data.highestStage, '层数')}
             `;
         } catch {
             grid.innerHTML = '<div class="pvp-status">排行榜读取失败</div>';
         }
     }
 
-    private renderBoard(title: string, entries: LeaderboardEntry[]): string {
+    private renderBoard(title: string, entries: LeaderboardEntry[], valueLabel = '分数'): string {
         const rows = entries.length > 0
             ? entries.map((entry, index) => `
                 <div class="leaderboard-row">
                     <span>${index + 1}</span>
                     <strong>${entry.displayName}#${entry.playerCode}</strong>
-                    <span>${entry.score.toLocaleString()}</span>
+                    <span>${valueLabel === '层数' ? `第 ${entry.score} 关` : entry.score.toLocaleString()}</span>
                     <time>${this.formatTime(entry.completedAt)}</time>
                 </div>
             `).join('')
@@ -67,7 +67,7 @@ export class LeaderboardScene extends Phaser.Scene {
             <section class="leaderboard-board">
                 <h2>${title}</h2>
                 <div class="leaderboard-head">
-                    <span>#</span><span>玩家</span><span>分数</span><span>完成时间</span>
+                    <span>#</span><span>玩家</span><span>${valueLabel}</span><span>完成时间</span>
                 </div>
                 ${rows}
             </section>

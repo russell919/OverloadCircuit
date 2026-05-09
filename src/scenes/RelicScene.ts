@@ -58,7 +58,7 @@ export class RelicScene extends Phaser.Scene {
                             ${this.relics.map((relic, i) => this.renderRewardRelicCard(relic, i)).join('')}
                         </div>
                         <div style="margin-top: 30px; text-align: center;">
-                            <button class="btn secondary" id="btn-skip">跳过 (随机获得)</button>
+                            <button class="btn secondary" id="btn-skip">随机获得（+4金币）</button>
                         </div>
                     </div>
                 </div>
@@ -87,7 +87,7 @@ export class RelicScene extends Phaser.Scene {
                             ${this.relics.map((relic, i) => this.renderRewardRelicCard(relic, i)).join('')}
                         </div>
                         <div style="margin-top: 30px; text-align: center;">
-                            <button class="btn secondary" id="btn-skip">跳过 (随机获得)</button>
+                            <button class="btn secondary" id="btn-skip">随机获得（+4金币）</button>
                         </div>
                     </div>
                 </div>
@@ -275,31 +275,31 @@ export class RelicScene extends Phaser.Scene {
         
         const shopHtml = `
             <div class="relic-select-container" style="justify-content: center; gap: 30px; padding: 20px; flex-direction: column;">
-                <div style="text-align: center; margin-bottom: 30px;">
+                <div class="relic-shop-titlebar" style="text-align: center; margin-bottom: 30px;">
                     <div class="relic-select-title">🏪 商店</div>
                 </div>
-                <div style="width: 100%; max-width: 850px; margin: 0 auto;">
-                    <div style="display: flex; justify-content: flex-end; margin-bottom: 20px; max-width: 800px; margin-left: auto; margin-right: auto;">
+                <div class="relic-shop-panel" style="width: 100%; max-width: 850px; margin: 0 auto;">
+                    <div class="relic-shop-goldbar" style="display: flex; justify-content: flex-end; margin-bottom: 20px; max-width: 800px; margin-left: auto; margin-right: auto;">
                         <div id="relic-shop-gold" style="color: #ffd700; font-size: 1.2rem; margin: 0;">当前金币: ${this.state.gold}</div>
                     </div>
-                    <div class="relic-cards-container" style="max-width: 800px; margin: 0 auto;">
+                    <div class="relic-cards-container relic-shop-grid" style="max-width: 800px; margin: 0 auto;">
                         ${this.shopItems.map((item, i) => {
                             const rarityColor = RELIC_RARITY_COLORS[item.relic.rarity];
                             const rarityText = RELIC_RARITY_TEXT[item.relic.rarity];
                             return `
-                                <div class="relic-select-card" data-shop-index="${i}" style="opacity: ${item.sold ? 0.5 : 1}; display: flex; flex-direction: column; min-height: 200px; border-color: ${rarityColor};">
+                                <div class="relic-select-card relic-shop-card" data-shop-index="${i}" style="opacity: ${item.sold ? 0.5 : 1}; display: flex; flex-direction: column; min-height: 200px; border-color: ${rarityColor};">
                                     <div class="relic-card-name" style="color: ${rarityColor};">${item.relic.name}</div>
                                     <div style="font-size: 0.9rem; color: ${rarityColor}; margin-bottom: 5px; text-align: center;">${rarityText}</div>
                                     <div style="font-size: 1.2rem; color: #ffd700; margin-bottom: 10px; text-align: center;">价格: ${item.relic.price} 金币</div>
                                     <div class="relic-card-desc" style="flex: 1;">${getRelicDescription(item.relic, this.state.maxHeat)}</div>
-                                    <button class="btn ${item.sold ? 'secondary' : 'primary'}" data-shop-index="${i}" style="margin-top: 15px; ${item.sold ? 'background: #666; cursor: not-allowed;' : ''}" ${item.sold || this.state.gold < item.relic.price ? 'disabled' : ''}>
+                                    <button class="btn relic-shop-buy ${item.sold ? 'secondary' : 'primary'}" data-shop-index="${i}" style="margin-top: 15px; ${item.sold ? 'background: #666; cursor: not-allowed;' : ''}" ${item.sold || this.state.gold < item.relic.price ? 'disabled' : ''}>
                                         ${item.sold ? '已售出' : '购买'}
                                     </button>
                                 </div>
                             `;
                         }).join('')}
                     </div>
-                    <div style="margin-top: 30px; text-align: center;">
+                    <div class="relic-shop-actions" style="margin-top: 30px; text-align: center;">
                         <button class="btn primary" id="btn-continue">继续前进</button>
                     </div>
                 </div>
