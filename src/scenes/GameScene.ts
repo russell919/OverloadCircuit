@@ -333,6 +333,15 @@ export class GameScene extends Phaser.Scene {
         const previewFinalValue = document.getElementById('preview-final-value');
         if (previewFinalValue) {
             previewFinalValue.textContent = preview.previewFinalScore.toLocaleString();
+            previewFinalValue.classList.remove('stage-clear-ready', 'stage-clear-overkill');
+            if (!this.isPvp()) {
+                const projectedStageScore = this.state.stageScore + preview.previewFinalScore;
+                if (projectedStageScore >= target * 5) {
+                    previewFinalValue.classList.add('stage-clear-overkill');
+                } else if (projectedStageScore >= target) {
+                    previewFinalValue.classList.add('stage-clear-ready');
+                }
+            }
         }
 
         const breakdownPanel = document.getElementById('breakdown-panel');
@@ -1118,6 +1127,9 @@ export class GameScene extends Phaser.Scene {
         this.state.log.push(`累计: ${this.state.stageScore.toLocaleString()} / ${target.toLocaleString()}`);
         if (overachievement.bonus > 0) {
             this.state.log.push(`超额突破奖励: +${overachievement.bonus} 金币`);
+        }
+        if (overachievement.extraRelicChoices) {
+            this.state.log.push(`超额突破奖励: +${overachievement.extraRelicChoices} 次遗物选择`);
         }
         this.state.log.push(`获得金币: ${totalGold}`);
         this.state.log.push('🎉🎉🎉');

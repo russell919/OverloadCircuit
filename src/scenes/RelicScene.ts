@@ -10,6 +10,7 @@ export class RelicScene extends Phaser.Scene {
     private relics: Relic[] = [];
     private shopItems: ShopItem[] = [];
     private showShop: boolean = false;
+    private remainingRewardChoices = 1;
     private disconnectCleanup?: () => void;
 
     constructor() {
@@ -18,6 +19,7 @@ export class RelicScene extends Phaser.Scene {
 
     init(data: { state: GameState }): void {
         this.state = data.state;
+        this.remainingRewardChoices = 1 + (this.state.goldReward?.overachievement?.extraRelicChoices || 0);
         this.relics = getRandomRelics(3, this.state.relics);
         
         this.showShop = this.state.gameMode === 'pvp' || this.state.stage % 5 === 0;
@@ -51,7 +53,7 @@ export class RelicScene extends Phaser.Scene {
                 <div class="relic-select-container" style="justify-content: center; gap: 30px; padding: 20px; flex-direction: column;">
                     ${stageClearInfo}
                     <div style="text-align: center;">
-                        <div class="relic-select-title" style="margin-bottom: 30px;">🎁 选择遗物</div>
+                        <div class="relic-select-title" style="margin-bottom: 30px;">🎁 ${this.getRewardChoiceTitle()}</div>
                         <div class="relic-cards-container" style="gap: 20px;">
                             ${this.relics.map((relic, i) => this.renderRewardRelicCard(relic, i)).join('')}
                         </div>
@@ -80,7 +82,7 @@ export class RelicScene extends Phaser.Scene {
                 <div class="relic-select-container" style="justify-content: center; gap: 30px; padding: 20px; flex-direction: column;">
                     ${stageClearInfo}
                     <div style="text-align: center;">
-                        <div class="relic-select-title" style="margin-bottom: 30px;">🎁 选择遗物</div>
+                        <div class="relic-select-title" style="margin-bottom: 30px;">🎁 ${this.getRewardChoiceTitle()}</div>
                         <div class="relic-cards-container" style="gap: 20px;">
                             ${this.relics.map((relic, i) => this.renderRewardRelicCard(relic, i)).join('')}
                         </div>
@@ -139,6 +141,7 @@ export class RelicScene extends Phaser.Scene {
         const target = 400 * Math.pow(1.5, this.state.stage - 1);
         const reward = this.state.goldReward;
         const overachievementBonus = reward.overachievement?.bonus || 0;
+        const extraRelicChoices = reward.overachievement?.extraRelicChoices || 0;
         const totalWithBonus = reward.total + overachievementBonus;
         
         return `
@@ -158,11 +161,19 @@ export class RelicScene extends Phaser.Scene {
                         <div>剩余回合: +${reward.remainingRounds} 金币</div>
                         <div>进度奖励: +${reward.progress} 金币</div>
                         ${overachievementBonus > 0 ? `<div style="color: #ffaa00;">超额突破: +${overachievementBonus} 金币</div>` : ''}
+                        ${extraRelicChoices > 0 ? `<div style="color: #ff6688;">超额抽取: +${extraRelicChoices} 次遗物选择</div>` : ''}
                         <div style="color: #ffd700; font-weight: bold; margin-top: 5px;">合计: +${totalWithBonus} 金币</div>
                     </div>
                 </div>
             </div>
         `;
+    }
+
+    private getRewardChoiceTitle(): string {
+        const extraTotal = this.state.goldReward?.overachievement?.extraRelicChoices || 0;
+        if (extraTotal <= 0) return '选择遗物';
+        const currentPick = 1 + extraTotal - this.remainingRewardChoices + 1;
+        return `选择遗物 (${currentPick}/${1 + extraTotal})`;
     }
 
     private renderRewardRelicCard(relic: Relic, index: number): string {
@@ -187,6 +198,12 @@ export class RelicScene extends Phaser.Scene {
         
         this.addSelectionAnimation(card, () => {
             addRelic(this.state, relic);
+            this.remainingRewardChoices -= 1;
+            if (this.remainingRewardChoices > 0) {
+                this.relics = getRandomRelics(3, this.state.relics);
+                this.create();
+                return;
+            }
             if (this.showShop) {
                 const shopRelics = getShopRelics(this.state.stage, this.state.relics);
                 this.shopItems = shopRelics.map(shopRelic => ({ relic: shopRelic, sold: false }));

@@ -60,7 +60,7 @@ export interface GoldRewardBreakdown {
     remainingRounds: number;
     progress: number;
     total: number;
-    overachievement?: { tier: number; bonus: number };
+    overachievement?: { tier: number; bonus: number; extraRelicChoices?: number };
 }
 
 export interface PvpPlayerInfo {

@@ -165,15 +165,17 @@ export function calculateDangerStopBonus(state: GameState): { bonus: number, mul
     return null;
 }
 
-export function calculateOverachievementGold(stageScore: number, targetScore: number): { tier: number, bonus: number } {
+export function calculateOverachievementGold(stageScore: number, targetScore: number): { tier: number, bonus: number, extraRelicChoices?: number } {
     const ratio = stageScore / targetScore;
 
-    if (ratio >= 4.0) {
-        return { tier: 3, bonus: 3 };
+    if (ratio >= 5.0) {
+        return { tier: 4, bonus: 12, extraRelicChoices: 1 };
+    } else if (ratio >= 4.0) {
+        return { tier: 3, bonus: 12 };
     } else if (ratio >= 2.5) {
-        return { tier: 2, bonus: 2 };
+        return { tier: 2, bonus: 8 };
     } else if (ratio >= 1.5) {
-        return { tier: 1, bonus: 1 };
+        return { tier: 1, bonus: 4 };
     }
 
     return { tier: 0, bonus: 0 };
